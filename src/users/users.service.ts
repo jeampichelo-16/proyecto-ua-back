@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PrismaClient, User, Role as PrismaRole } from "@prisma/client";
 import { CreateUserDto } from "./dto";
 import { Role } from "src/common/enum/role.enum";
+import * as bcrypt from "bcrypt";
 
 @Injectable()
 export class UsersService {
@@ -43,6 +44,16 @@ export class UsersService {
     await this.prisma.user.update({
       where: { id: userId },
       data: { isEmailVerified: true },
+    });
+  }
+
+  async updatePassword(userId: number, newPassword: string): Promise<void> {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+      },
     });
   }
 }

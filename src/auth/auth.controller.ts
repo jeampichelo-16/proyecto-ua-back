@@ -49,6 +49,8 @@ import { Public } from "src/common/decorators/public.decorator";
 import { OnlyRoles } from "src/common/decorators/roles.decorator";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { RolesGuard } from "src/common/guards/roles.guard";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 
 @ApiTags("auth")
 @Controller("auth")
@@ -204,6 +206,45 @@ export class AuthController {
     await this.authService.resendVerificationEmail(dto.email);
     return {
       message: "Correo de verificación reenviado ✅",
+      statusCode: 200,
+      success: true,
+    };
+  }
+
+  @Public()
+  @SkipThrottle()
+  @Post("forgot-password")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Solicitar recuperación de contraseña" })
+  @ApiBody({ type: ForgotPasswordDto })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, type: ErrorResponseDto })
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto
+  ): Promise<MessageResponseDto> {
+    await this.authService.forgotPassword(dto.email);
+    return {
+      message: "Correo enviado para restablecer contraseña",
+      statusCode: 200,
+      success: true,
+    };
+  }
+  
+
+  @SkipThrottle()
+  @Public()
+  @Post("reset-password")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Restablecer contraseña con token" })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, type: ErrorResponseDto })
+  async resetPassword(
+    @Body() dto: ResetPasswordDto
+  ): Promise<MessageResponseDto> {
+    await this.authService.resetPassword(dto.token, dto.newPassword);
+    return {
+      message: "Contraseña restablecida correctamente",
       statusCode: 200,
       success: true,
     };

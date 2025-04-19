@@ -23,7 +23,7 @@ import { RegisterDto } from "./dto/register.dto";
 import { TokensResponseDto } from "src/common/dto/tokens-response.dto";
 import { AuthenticatedUser } from "src/common/types/authenticated-user";
 
-import { Role as AppRole } from "src/common/enum/role.enum";
+import { Role as AppRole, Role } from "src/common/enum/role.enum";
 import { Role as PrismaRole } from "@prisma/client";
 
 @Injectable()
@@ -259,5 +259,114 @@ export class AuthService {
         link: verificationUrl,
       }
     );
+  }
+
+  // src/auth/auth.service.ts
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.usersService.findByEmail(email);
+
+    // 🔐 Bloqueamos si no existe o si no tiene un rol permitido
+    if (!user || (user.role !== Role.CLIENTE && user.role !== Role.EMPLEADO)) {
+      throw new UnauthorizedException({
+        statusCode: 401,
+        message: "No estás autorizado para esta operación",
+        error: "Unauthorized",
+      });
+    }
+
+    const payload = { sub: user.id, type: "reset" };
+
+    const token = jwt.sign(
+      payload,
+      this.configService.get("JWT_VERIFICATION_SECRET_EMAIL")!,
+      {
+        expiresIn: this.configService.get("TIMEOUT_VERIFICATION_TOKEN_EMAIL"),
+      }
+    );
+
+    const resetUrl = `${this.configService.get(
+      "APP_URL"
+    )}/api/auth/reset-password?token=${token}`;
+
+    await this.mailService.sendTemplateEmail(
+      user.email,
+      "Restablece tu contraseña",
+      MailTemplate.RESET_PASSWORD,
+      {
+        name: user.email,
+        link: resetUrl,
+      }
+    );
+  }
+
+  async sendResetPasswordEmail(email: string): Promise<void> {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: "El correo no está registrado",
+        error: "Bad Request",
+      });
+    }
+
+    const payload = { sub: user.id, type: "reset" };
+    const token = jwt.sign(
+      payload,
+      this.configService.get<string>("JWT_VERIFICATION_SECRET_EMAIL")!,
+      {
+        expiresIn: this.configService.get<string>(
+          "TIMEOUT_VERIFICATION_TOKEN_EMAIL"
+        ),
+      }
+    );
+
+    const resetUrl = `${this.configService.get(
+      "APP_URL"
+    )}/reset-password?token=${token}`;
+
+    await this.mailService.sendTemplateEmail(
+      user.email,
+      "Restablece tu contraseña",
+      MailTemplate.RESET_PASSWORD,
+      {
+        name: user.email,
+        link: resetUrl,
+      }
+    );
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    try {
+      const payload = jwt.verify(
+        token,
+        this.configService.get<string>("JWT_VERIFICATION_SECRET_EMAIL")!
+      ) as jwt.JwtPayload;
+
+      if (payload.type !== "reset") {
+        throw new BadRequestException({
+          statusCode: 400,
+          message: "Token inválido para reset",
+          error: "Bad Request",
+        });
+      }
+
+      const user = await this.usersService.findById(Number(payload.sub));
+      if (!user) {
+        throw new BadRequestException({
+          statusCode: 400,
+          message: "Usuario no encontrado",
+          error: "Bad Request",
+        });
+      }
+
+      const hashed = await bcrypt.hash(newPassword, 10);
+      await this.usersService.updatePassword(user.id, hashed);
+    } catch (err) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: "Token inválido o expirado",
+        error: "Bad Request",
+      });
+    }
   }
 }
