@@ -38,21 +38,6 @@ export class UsersController {
   @ApiResponse({ status: 404, type: ErrorResponseDto })
   @ApiResponse({ status: 429, type: ThrottleErrorDto })
   async getProfile(@Req() req: AuthenticatedRequest): Promise<UserResponseDto> {
-    const user = await this.usersService.findById(req.user.id);
-
-    if (!user) {
-      throw new NotFoundException({
-        statusCode: HttpStatus.NOT_FOUND,
-        message: "Usuario no encontrado",
-        error: "Not Found",
-      });
-    }
-
-    return {
-      id: user.id,
-      email: user.email,
-      role: user.role as Role,
-      createdAt: user.createdAt,
-    };
+    return this.usersService.getProfileById(req.user.id);
   }
 }

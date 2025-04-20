@@ -1,11 +1,13 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaClient, User, Role as PrismaRole } from "@prisma/client";
-import { CreateUserDto } from "./dto";
+import { HttpStatus, Injectable, NotFoundException } from "@nestjs/common";
+import { User, Role as PrismaRole } from "@prisma/client";
+import { CreateUserDto, UserResponseDto } from "./dto";
 import { Role } from "src/common/enum/role.enum";
+import { PrismaService } from "src/prisma/prisma.service";
+import { throwNotFound } from "src/common/utils/errors";
 
 @Injectable()
 export class UsersService {
-  private prisma = new PrismaClient();
+  constructor(private readonly prisma: PrismaService) {}
 
   async findByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { email } });
@@ -22,7 +24,7 @@ export class UsersService {
         password: dto.password,
         role: (dto.role ?? Role.EMPLEADO) as PrismaRole, // 👈 casteo necesario
         isEmailVerified: false,
-        username: dto.email.split("@")[0], // 👈 username por defecto
+        username: dto.username ?? `${dto.email.split("@")[0]}${Date.now()}`, // 👈 username por defecto
         firstName: dto.email.split("@")[0], // 👈 firstName por defecto
         lastName: dto.email.split("@")[0], // 👈 lastName por defecto
       },
@@ -30,6 +32,9 @@ export class UsersService {
   }
 
   async updateRefreshToken(userId: number, token: string): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) throwNotFound("Usuario no encontrado");
+
     return this.prisma.user.update({
       where: { id: userId },
       data: { refreshToken: token },
@@ -44,6 +49,9 @@ export class UsersService {
   }
 
   async verifyUserEmail(userId: number): Promise<void> {
+    const user = await this.findById(userId);
+    if (!user) throwNotFound("Usuario no encontrado");
+
     await this.prisma.user.update({
       where: { id: userId },
       data: { isEmailVerified: true },
@@ -55,6 +63,7 @@ export class UsersService {
       where: { id: userId },
       data: {
         password: hashedPassword,
+        updatedAt: new Date(),
       },
     });
   }
@@ -66,5 +75,23 @@ export class UsersService {
         lastLoginAt: new Date(),
       },
     });
+  }
+
+  async getProfileById(id: number): Promise<UserResponseDto> {
+    const user = await this.findById(id);
+    if (!user) throwNotFound("Usuario no encontrado");
+
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role as Role,
+      isActive: user.isActive,
+      isEmailVerified: user.isEmailVerified,
+      createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt,
+    };
   }
 }

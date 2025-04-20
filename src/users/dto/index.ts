@@ -54,9 +54,27 @@ export class UserResponseDto {
   @ApiProperty({ example: "usuario@example.com" })
   email: string;
 
-  @ApiProperty({ example: new Date().toISOString() })
-  createdAt: Date;
+  @ApiProperty({ example: "usuario123" })
+  username: string;
+
+  @ApiProperty({ example: "Sebastián" })
+  firstName: string;
+
+  @ApiProperty({ example: "Chaquila" })
+  lastName: string;
 
   @ApiProperty({ enum: Role, example: Role.EMPLEADO })
   role: Role;
+
+  @ApiProperty({ example: true })
+  isActive: boolean;
+
+  @ApiProperty({ example: true })
+  isEmailVerified: boolean;
+
+  @ApiProperty({ example: new Date().toISOString() })
+  createdAt: Date;
+
+  @ApiProperty({ example: new Date().toISOString(), required: false })
+  lastLoginAt: Date | null;
 }

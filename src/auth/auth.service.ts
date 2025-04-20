@@ -3,7 +3,6 @@
 import {
   Injectable,
   UnauthorizedException,
-  ConflictException,
   BadRequestException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
@@ -24,6 +23,13 @@ import { AuthenticatedUser } from "src/common/types/authenticated-user";
 
 import { Role as AppRole, Role } from "src/common/enum/role.enum";
 import { Role as PrismaRole } from "@prisma/client";
+import {
+  throwBadRequest,
+  throwForbidden,
+  throwNotFound,
+  throwUnauthorized,
+} from "src/common/utils/errors";
+import { generateFrontendUrl } from "src/common/utils/generate-url";
 
 @Injectable()
 export class AuthService {
@@ -33,51 +39,32 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly mailService: MailService
   ) {}
-
+  
   async validateUser(
     email: string,
     password: string,
     expectedRole?: AppRole
   ): Promise<AuthenticatedUser> {
     const user = await this.usersService.findByEmail(email);
-    if (!user)
-      throw new UnauthorizedException({
-        statusCode: 401,
-        message: "Credenciales inválidas",
-        error: "Unauthorized",
-      });
+    if (!user) throwUnauthorized("Credenciales inválidas");
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      throw new UnauthorizedException({
-        statusCode: 401,
-        message: "Credenciales inválidas",
-        error: "Unauthorized",
-      });
+    if (!isMatch) throwUnauthorized("Credenciales inválidas");
 
     if (!user.isEmailVerified) {
-      throw new UnauthorizedException({
-        statusCode: 401,
-        message:
-          "Debes verificar tu correo electrónico antes de iniciar sesión.",
-        error: "Correo no verificado",
-      });
+      throwUnauthorized(
+        "Debes verificar tu correo electrónico antes de iniciar sesión."
+      );
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException({
-        statusCode: 401,
-        message: "Tu cuenta ha sido desactivada",
-        error: "Unauthorized",
-      });
+      throwUnauthorized("Tu cuenta ha sido desactivada");
     }
 
     if (expectedRole && user.role !== (expectedRole as PrismaRole)) {
-      throw new UnauthorizedException({
-        statusCode: 401,
-        message: `No tienes permisos para iniciar sesión como ${expectedRole}`,
-        error: "Unauthorized",
-      });
+      throwUnauthorized(
+        `No tienes permisos para iniciar sesión como ${expectedRole}`
+      );
     }
 
     await this.usersService.updateLastLogin(user.id);
@@ -92,8 +79,6 @@ export class AuthService {
   async loginAndSaveRefreshToken(
     user: AuthenticatedUser
   ): Promise<TokensResponseDto> {
-    await this.usersService.updateLastLogin(user.id);
-
     const tokens = generateTokens(this.jwt, this.configService, {
       sub: user.id,
       email: user.email,
@@ -111,14 +96,8 @@ export class AuthService {
     ) as jwt.JwtPayload;
 
     const user = await this.usersService.findById(Number(payload.sub));
-
-    if (!user) {
-      throw new BadRequestException("Usuario no encontrado");
-    }
-
-    if (user.isEmailVerified) {
-      throw new BadRequestException("Este correo ya fue verificado");
-    }
+    if (!user) throwNotFound("Usuario no encontrado");
+    if (user.isEmailVerified) throwBadRequest("Este correo ya fue verificado");
 
     await this.usersService.verifyUserEmail(user.id);
   }
@@ -132,40 +111,24 @@ export class AuthService {
 
       if (!payload.sub) {
         clearAuthCookies(res);
-        throw new UnauthorizedException({
-          statusCode: 401,
-          message: "Token inválido",
-          error: "Unauthorized",
-        });
+        throwUnauthorized("Token inválido");
       }
 
       const user = await this.usersService.findById(Number(payload.sub));
       if (!user) {
         clearAuthCookies(res);
-        throw new UnauthorizedException({
-          statusCode: 401,
-          message: "Token inválido",
-          error: "Unauthorized",
-        });
+        throwUnauthorized("Token inválido");
       }
 
       if (!user.refreshToken) {
         clearAuthCookies(res);
-        throw new UnauthorizedException({
-          statusCode: 401,
-          message: "Token reutilizado — sesión revocada",
-          error: "ReusedToken",
-        });
+        throwUnauthorized("Token reutilizado — sesión revocada");
       }
 
       if (user.refreshToken !== refreshToken) {
         await this.usersService.clearRefreshToken(user.id);
         clearAuthCookies(res);
-        throw new UnauthorizedException({
-          statusCode: 401,
-          message: "Token reutilizado — sesión revocada",
-          error: "ReusedToken",
-        });
+        throwUnauthorized("Token reutilizado — sesión revocada");
       }
 
       const newTokens = generateTokens(this.jwt, this.configService, {
@@ -183,11 +146,7 @@ export class AuthService {
     } catch (err) {
       clearAuthCookies(res);
       if (err instanceof UnauthorizedException) throw err;
-      throw new UnauthorizedException({
-        statusCode: 401,
-        message: "Token inválido",
-        error: "Unauthorized",
-      });
+      throwUnauthorized("Token inválido");
     }
   }
 
@@ -197,21 +156,8 @@ export class AuthService {
 
   async resendVerificationEmail(email: string): Promise<void> {
     const user = await this.usersService.findByEmail(email);
-    if (!user) {
-      throw new UnauthorizedException({
-        statusCode: 401,
-        message: "Usuario no encontrado",
-        error: "Unauthorized",
-      });
-    }
-
-    if (user.isEmailVerified) {
-      throw new BadRequestException({
-        statusCode: 400,
-        message: "Este correo ya fue verificado",
-        error: "Bad Request",
-      });
-    }
+    if (!user) throwNotFound("Usuario no encontrado");
+    if (user.isEmailVerified) throwBadRequest("Este correo ya fue verificado");
 
     const payload = { sub: user.id, type: "verify" };
     const token = jwt.sign(
@@ -224,8 +170,11 @@ export class AuthService {
       }
     );
 
-    const appUrl = this.configService.get<string>("APP_URL_BACKEND")!;
-    const verificationUrl = `${appUrl}/api/auth/verify-email?token=${token}`;
+    const verificationUrl = generateFrontendUrl(
+      this.configService.get<string>("APP_URL_BACKEND")!,
+      "/api/auth/verify-email",
+      token
+    );
 
     await this.mailService.sendTemplateEmail(
       user.email,
@@ -241,13 +190,9 @@ export class AuthService {
   async sendResetPasswordEmail(email: string): Promise<void> {
     const user = await this.usersService.findByEmail(email);
 
-    if (!user || user.role !== Role.EMPLEADO) {
-      throw new UnauthorizedException({
-        statusCode: 401,
-        message: "No estás autorizado para esta operación",
-        error: "Unauthorized",
-      });
-    }
+    if (!user) throwNotFound("Usuario no encontrado");
+    if (user.role !== Role.EMPLEADO)
+      throwForbidden("Solo empleados autorizados");
 
     const payload = { sub: user.id, type: "reset" };
 
@@ -261,9 +206,11 @@ export class AuthService {
       }
     );
 
-    const resetUrl = `${this.configService.get(
-      "APP_URL_FRONTEND"
-    )}/auth/reset-password?token=${token}`;
+    const resetUrl = generateFrontendUrl(
+      this.configService.get("APP_URL_FRONTEND")!,
+      "/auth/reset-password",
+      token
+    );
 
     await this.mailService.sendTemplateEmail(
       user.email,
@@ -285,40 +232,22 @@ export class AuthService {
       ) as jwt.JwtPayload;
 
       if (payload.type !== "reset") {
-        throw new BadRequestException({
-          statusCode: 400,
-          message: "Token inválido para reset",
-          error: "Bad Request",
-        });
+        throwBadRequest("Token inválido para reset");
       }
 
       const user = await this.usersService.findById(Number(payload.sub));
-      if (!user) {
-        throw new BadRequestException({
-          statusCode: 400,
-          message: "Usuario no encontrado",
-          error: "Bad Request",
-        });
-      }
+      if (!user) throwNotFound("Usuario no encontrado");
 
       const isSame = await bcrypt.compare(newPassword, user.password);
       if (isSame) {
-        throw new BadRequestException({
-          statusCode: 400,
-          message: "La nueva contraseña no puede ser igual a la anterior",
-          error: "Bad Request",
-        });
+        throwBadRequest("La nueva contraseña no puede ser igual a la anterior");
       }
 
       const hashed = await bcrypt.hash(newPassword, 10);
       await this.usersService.updatePassword(user.id, hashed);
       await this.usersService.clearRefreshToken(user.id);
     } catch (err) {
-      throw new BadRequestException({
-        statusCode: 400,
-        message: "Token inválido o expirado",
-        error: "Bad Request",
-      });
+      throwBadRequest("Token inválido o expirado");
     }
   }
 

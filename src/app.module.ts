@@ -9,7 +9,9 @@ import { MailModule } from "./mail/mail.module";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
 import { validationSchema } from "./config/validation.schema";
-import { AdminModule } from './admin/admin.module';
+import { AdminModule } from "./admin/admin.module";
+import { PrismaService } from "./prisma/prisma.service";
+import { PrismaModule } from "./prisma/prisma.module";
 
 @Module({
   imports: [
@@ -30,6 +32,7 @@ import { AdminModule } from './admin/admin.module';
     MailModule,
     ConfigModule,
     AdminModule,
+    PrismaModule,
   ],
   controllers: [AppController],
   providers: [
@@ -38,6 +41,7 @@ import { AdminModule } from './admin/admin.module';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    PrismaService,
   ],
 })
 export class AppModule {}
