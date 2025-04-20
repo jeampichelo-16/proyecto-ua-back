@@ -16,6 +16,7 @@ datasource db {
 enum Role {
   EMPLEADO
   ADMIN
+  OPERARIO
 }
 
 model User {

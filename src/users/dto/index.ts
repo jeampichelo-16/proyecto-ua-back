@@ -21,9 +21,15 @@ export class CreateUserDto {
   @MinLength(6)
   password: string;
 
-  @ApiProperty({ enum: Role, required: false, example: Role.EMPLEADO })
+  @ApiProperty({
+    enum: Role,
+    example: Role.OPERARIO,
+    description: "Solo ADMIN puede crear usuarios con rol OPERARIO.",
+  })
   @IsOptional()
-  @IsEnum(Role)
+  @IsEnum(Role, {
+    message: `El rol debe ser uno de: ${Object.values(Role).join(", ")}`,
+  })
   role?: Role;
 
   @ApiProperty({ example: false })
