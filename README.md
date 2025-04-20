@@ -1,99 +1,161 @@
-### 📄 `README.md`
+---
 
-```md
-# 🛡️ Sistema de Autenticación con Roles - NestJS + Prisma
+# 📌 auth-back-model
 
-Este proyecto implementa un sistema de autenticación robusto usando:
-
-- 🔐 **JWT + Cookies** para manejo de sesiones.
-- 🧑‍💼 **Autenticación basada en roles** (ADMIN, EMPLEADO, CLIENTE).
-- 📧 **Verificación por correo electrónico**.
-- 📦 **Prisma** como ORM y PostgreSQL/MySQL como base de datos.
+**auth-back-model** es un backend desarrollado con NestJS que proporciona funcionalidades completas de autenticación y gestión de usuarios. Este proyecto es ideal para aplicaciones que requieren un sistema robusto de autenticación, incluyendo verificación por correo electrónico, restablecimiento de contraseñas y control de roles de usuario.
 
 ---
 
-## 🚀 Requisitos
+## 🚀 Características Principales
 
-- Node.js >= 18
-- PostgreSQL o MySQL (según tu configuración de `DATABASE_URL`)
-- `.env` configurado correctamente con las variables:
-  - `DATABASE_URL`
-  - `JWT_SECRET`, `JWT_REFRESH_SECRET`, `JWT_VERIFICATION_SECRET_EMAIL`
-  - `TIMEOUT_VERIFICATION_TOKEN_EMAIL`
-  - `APP_URL_BACKEND`
-  - y configuraciones de correo (SMTP)
+- **Registro de Usuarios**: Permite a nuevos usuarios registrarse en el sistema.
+- **Inicio de Sesión**: Autenticación de usuarios mediante correo electrónico y contraseña.
+- **Verificación de Correo Electrónico**: Envía un enlace de verificación al correo del usuario para confirmar su cuenta.
+- **Restablecimiento de Contraseña**: Permite a los usuarios restablecer su contraseña en caso de olvido.
+- **Gestión de Roles**: Control de acceso basado en roles como ADMIN, EMPLEADO y CLIENTE.
+- **Protección de Rutas**: Acceso restringido a ciertas rutas según el rol del usuario.
+- **Envío de Correos Electrónicos**: Integración para el envío de correos electrónicos para verificación y restablecimiento de contraseñas.
 
 ---
 
-## 🧑‍💻 Instalación
+## 🛠️ Tecnologías Utilizadas
+
+- **[NestJS](https://nestjs.com/)**: Framework para construir aplicaciones del lado del servidor eficientes y escalables.
+- **[Prisma](https://www.prisma.io/)**: ORM para interactuar con la base de datos.
+- **[JWT](https://jwt.io/)**: Para la gestión de autenticación mediante tokens.
+- **[Bcrypt](https://www.npmjs.com/package/bcrypt)**: Para el hash de contraseñas.
+- **[Nodemailer](https://nodemailer.com/)**: Para el envío de correos electrónicos.
+- **[Handlebars](https://handlebarsjs.com/)**: Motor de plantillas para correos electrónicos.
+
+---
+
+## ⚙️ Instalación y Configuración
+
+### 1. Clonar el Repositorio
+
+```bash
+git clone https://github.com/SebaschaM/auth-back-model.git
+cd auth-back-model
+```
+
+### 2. Instalar Dependencias
 
 ```bash
 npm install
 ```
 
----
+### 3. Configurar Variables de Entorno
 
-## 🧪 Desarrollo
+Crea un archivo `.env` en la raíz del proyecto y define las siguientes variables:
+
+```env
+DATABASE_URL=postgresql://usuario:contraseña@localhost:5432/nombre_base_datos
+JWT_SECRET=tu_secreto_jwt
+JWT_VERIFICATION_SECRET_EMAIL=tu_secreto_verificacion_email
+TIMEOUT_VERIFICATION_TOKEN_EMAIL=3600s
+APP_URL_FRONTEND=http://localhost:5173
+APP_URL_BACKEND=http://localhost:3000
+MAIL_HOST=smtp.ejemplo.com
+MAIL_PORT=587
+MAIL_USER=tu_correo@ejemplo.com
+MAIL_PASS=tu_contraseña_correo
+```
+
+Asegúrate de reemplazar los valores con tus propias configuraciones.
+
+### 4. Configurar la Base de Datos
+
+Ejecuta las migraciones de Prisma para configurar la base de datos:
 
 ```bash
-npm run start
+npx prisma migrate dev --name init
 ```
 
-> ✅ Este comando:
->
-> - Compila y ejecuta el servidor en modo desarrollo.
-> - Copia automáticamente los archivos de plantillas `src/mail/templates/*.hbs` a `dist/src/mail/templates/`.
-
----
-
-## 🌱 Insertar Seed Inicial (Cuenta Admin)
-
-Para crear una cuenta de administrador predeterminada:
+### 5. Iniciar el Servidor
 
 ```bash
-npm run seed
+npm run start:dev
 ```
 
-> Esto creará una cuenta con los siguientes datos:
-
-```txt
-Correo: admin@admin.com
-Contraseña: admin123
-Rol: ADMIN
-```
-
-📌 Se crea solo si no existe previamente.
+El servidor estará disponible en `http://localhost:3000`.
 
 ---
 
-## 🧪 Pruebas de roles
+## 📬 Funcionalidades de Correo Electrónico
 
-| Ruta | Rol requerido | Protegida por |
-|------|---------------|---------------|
-| `GET /users/profile` | CLIENTE / ADMIN / EMPLEADO | JWT |
-| `GET /admin/dashboard` | ADMIN o EMPLEADO | JWT + Rol |
+El sistema envía correos electrónicos para:
 
----
+- **Verificación de Cuenta**: Tras el registro, el usuario recibe un correo con un enlace para verificar su cuenta.
+- **Restablecimiento de Contraseña**: Si el usuario olvida su contraseña, puede solicitar un enlace para restablecerla.
 
-## 📁 Estructura del proyecto
-
-```txt
-src/
-├── auth/             # Módulo de autenticación
-├── users/            # Módulo de usuarios
-├── admin/            # Módulo de administración (Dashboard)
-├── common/
-│   ├── guards/       # Guards como JwtAuthGuard y RolesGuard
-│   ├── utils/        # Funciones auxiliares
-│   ├── enum/         # Enum centralizado de roles
-│   └── dto/          # DTOs compartidos (ThrottleErrorDto, etc.)
-├── mail/             # Servicio de envío de correos
-└── prisma/seed.ts    # Script para seed inicial
-```
+Asegúrate de que las configuraciones de correo en el archivo `.env` sean correctas para que estas funcionalidades operen adecuadamente.
 
 ---
 
-## 🧾 Licencia
+## 🔐 Gestión de Roles y Acceso
 
-MIT - SebasChaquila © 2025
+El sistema define los siguientes roles:
+
+- **ADMIN**: Acceso completo a todas las funcionalidades.
+- **EMPLEADO**: Acceso limitado a ciertas funcionalidades.
+- **CLIENTE**: Acceso básico a funcionalidades específicas.
+
+El acceso a las rutas está protegido mediante guardias que verifican el rol del usuario antes de permitir el acceso.
+
+---
+
+## 📫 Endpoints Principales
+
+### Autenticación
+
+- `POST /api/auth/register`: Registro de nuevos usuarios.
+- `POST /api/auth/login`: Inicio de sesión.
+- `GET /api/auth/verify-email?token=...`: Verificación de correo electrónico.
+- `POST /api/auth/forgot-password`: Solicitar restablecimiento de contraseña.
+- `POST /api/auth/reset-password`: Restablecer contraseña utilizando un token.
+
+### Usuarios
+
+- `GET /api/users/me`: Obtener información del usuario autenticado.
+- `PATCH /api/users/change-password`: Cambiar la contraseña del usuario autenticado.
+
+---
+
+## 🧪 Pruebas
+
+Para ejecutar las pruebas, utiliza el siguiente comando:
+
+```bash
+npm run test
 ```
+
+Asegúrate de tener configurada una base de datos de pruebas y las variables de entorno correspondientes.
+
+---
+
+## 📄 Licencia
+
+Este proyecto está licenciado bajo la [MIT License](LICENSE).
+
+---
+
+## 🤝 Contribuciones
+
+¡Las contribuciones son bienvenidas! Si deseas contribuir, por favor sigue estos pasos:
+
+1. Haz un fork del repositorio.
+2. Crea una nueva rama (`git checkout -b feature/nueva-funcionalidad`).
+3. Realiza tus cambios y haz commits (`git commit -am 'Agrega nueva funcionalidad'`).
+4. Sube tus cambios a tu fork (`git push origin feature/nueva-funcionalidad`).
+5. Abre un Pull Request en este repositorio.
+
+---
+
+## 📞 Contacto
+
+Para consultas o soporte, por favor contacta a:
+
+- **Nombre**: Sebastián Ch.
+- **Correo Electrónico**: schaquila@autonoma.edu.pe
+
+---
