@@ -55,11 +55,7 @@ import { ResetPasswordDto } from "./dto/reset-password.dto";
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
-  constructor(
-    private readonly authService: AuthService,
-    private readonly usersService: UsersService,
-    private readonly configService: ConfigService
-  ) {}
+  constructor(private readonly authService: AuthService) {}
 
   @Public()
   @Post("register")
@@ -152,7 +148,6 @@ export class AuthController {
   }
 
   @Public()
-  @SkipThrottle()
   @Get("verify-email")
   @ApiOperation({ summary: "Verificar correo electrónico con token" })
   @ApiQuery({ name: "token", required: true })
@@ -169,14 +164,8 @@ export class AuthController {
         error: "Bad Request",
       });
     }
-
     try {
-      const payload = jwt.verify(
-        token,
-        this.configService.get<string>("JWT_VERIFICATION_SECRET_EMAIL")!
-      ) as jwt.JwtPayload;
-
-      await this.usersService.verifyUserEmail(Number(payload.sub));
+      await this.authService.verifyEmailToken(token);
 
       return {
         message: "Correo verificado correctamente ✅",
@@ -229,7 +218,6 @@ export class AuthController {
       success: true,
     };
   }
-  
 
   @SkipThrottle()
   @Public()

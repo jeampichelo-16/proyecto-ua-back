@@ -123,7 +123,7 @@ export class AuthService {
       });
     }
 
-    const appUrl = this.configService.get<string>("APP_URL_BACKEND")!;
+    const appUrl = this.configService.get<string>("APP_URL_FRONTEND")!;
     const token = jwt.sign(
       payload,
       this.configService.get("JWT_VERIFICATION_SECRET_EMAIL")!,
@@ -131,7 +131,7 @@ export class AuthService {
         expiresIn: this.configService.get("TIMEOUT_VERIFICATION_TOKEN_EMAIL"),
       }
     );
-    const verificationUrl = `${appUrl}/api/auth/verify-email?token=${token}`;
+    const verificationUrl = `${appUrl}/auth/verify-email?token=${token}`;
 
     await this.mailService.sendTemplateEmail(
       user.email,
@@ -144,6 +144,25 @@ export class AuthService {
     );
 
     return { id: user.id, email: user.email };
+  }
+
+  async verifyEmailToken(token: string): Promise<void> {
+    const payload = jwt.verify(
+      token,
+      this.configService.get<string>("JWT_VERIFICATION_SECRET_EMAIL")!
+    ) as jwt.JwtPayload;
+
+    const user = await this.usersService.findById(Number(payload.sub));
+
+    if (!user) {
+      throw new BadRequestException("Usuario no encontrado");
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestException("Este correo ya fue verificado");
+    }
+
+    await this.usersService.verifyUserEmail(user.id);
   }
 
   async refreshTokens(
@@ -261,7 +280,6 @@ export class AuthService {
     );
   }
 
-  // src/auth/auth.service.ts
   async sendResetPasswordEmail(email: string): Promise<void> {
     const user = await this.usersService.findByEmail(email);
 
