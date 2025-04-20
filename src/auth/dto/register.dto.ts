@@ -1,3 +1,4 @@
+/*
 // ✅ src/auth/dto/register.dto.ts
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsEmail, IsEnum, IsOptional, MinLength } from "class-validator";
@@ -14,8 +15,8 @@ export class RegisterDto {
 
   @ApiPropertyOptional({
     enum: Role,
-    default: Role.CLIENTE,
-    description: "Rol del usuario. Opcional, por defecto es CLIENTE",
+    default: Role.EMPLEADO,
+    description: "Rol del usuario. Opcional, por defecto es EMPLEADO.",
   })
   @IsOptional()
   @IsEnum(Role, {
@@ -23,3 +24,4 @@ export class RegisterDto {
   })
   role?: Role;
 }
+  */

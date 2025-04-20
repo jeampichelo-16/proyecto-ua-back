@@ -21,7 +21,7 @@ import { AdminModule } from './admin/admin.module';
       throttlers: [
         {
           ttl: 60000, // tiempo en segundos
-          limit: 10, // número de peticiones permitidas
+          limit: 6, // número de peticiones permitidas
         },
       ],
     }),

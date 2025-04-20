@@ -13,13 +13,9 @@ import {
 import { Response, Request } from "express";
 import { AuthService } from "./auth.service";
 import { setAuthCookies } from "src/common/utils/cookies";
-import * as jwt from "jsonwebtoken";
-import { UsersService } from "src/users/users.service";
-import { ConfigService } from "@nestjs/config";
 import { SkipThrottle } from "@nestjs/throttler";
 
 // DTOs del módulo auth
-import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { ResendVerificationDto } from "./dto/resend-verification.dto";
 
@@ -57,6 +53,7 @@ import { ResetPasswordDto } from "./dto/reset-password.dto";
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  /*
   @Public()
   @Post("register")
   @HttpCode(201)
@@ -73,6 +70,7 @@ export class AuthController {
       success: true,
     };
   }
+  */
 
   @Public()
   @Post("login")
@@ -101,7 +99,7 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @OnlyRoles(AppRole.ADMIN, AppRole.EMPLEADO, AppRole.CLIENTE)
+  @OnlyRoles(AppRole.ADMIN, AppRole.EMPLEADO)
   @Post("refresh-token")
   @HttpCode(200)
   @ApiOperation({ summary: "Rotar token de acceso" })
@@ -125,7 +123,7 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @OnlyRoles(AppRole.ADMIN, AppRole.EMPLEADO, AppRole.CLIENTE)
+  @OnlyRoles(AppRole.ADMIN, AppRole.EMPLEADO)
   @SkipThrottle()
   @Post("logout")
   @HttpCode(200)

@@ -30,7 +30,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @OnlyRoles(Role.ADMIN, Role.EMPLEADO, Role.CLIENTE)
+  @OnlyRoles(Role.ADMIN, Role.EMPLEADO)
   @Get("profile")
   @ApiBearerAuth()
   @ApiOperation({ summary: "Obtener perfil del usuario autenticado" })

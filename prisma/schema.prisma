@@ -14,17 +14,22 @@ datasource db {
 }
 
 enum Role {
-  CLIENTE
   EMPLEADO
   ADMIN
 }
 
 model User {
-  id              Int      @id @default(autoincrement())
-  email           String   @unique
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  username        String    @unique
+  firstName       String
+  lastName        String
   password        String
   refreshToken    String?
-  isEmailVerified Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  role            Role     @default(CLIENTE)
+  role            Role      @default(EMPLEADO)
+  isEmailVerified Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }

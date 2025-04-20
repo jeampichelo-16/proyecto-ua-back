@@ -21,10 +21,29 @@ export class CreateUserDto {
   @MinLength(6)
   password: string;
 
-  @ApiProperty({ enum: Role, required: false, example: Role.CLIENTE })
+  @ApiProperty({ enum: Role, required: false, example: Role.EMPLEADO })
   @IsOptional()
   @IsEnum(Role)
   role?: Role;
+
+  @ApiProperty({ example: false })
+  @IsOptional()
+  isEmailVerified?: boolean;
+
+  @ApiProperty({ example: "defaultUsername" })
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @ApiProperty({ example: "John" })
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiProperty({ example: "Doe" })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
 }
 
 // ✅ DTO de respuesta al obtener perfil
@@ -38,6 +57,6 @@ export class UserResponseDto {
   @ApiProperty({ example: new Date().toISOString() })
   createdAt: Date;
 
-  @ApiProperty({ enum: Role, example: Role.CLIENTE })
+  @ApiProperty({ enum: Role, example: Role.EMPLEADO })
   role: Role;
 }

@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { PrismaClient, User, Role as PrismaRole } from "@prisma/client";
 import { CreateUserDto } from "./dto";
 import { Role } from "src/common/enum/role.enum";
-import * as bcrypt from "bcrypt";
 
 @Injectable()
 export class UsersService {
@@ -21,7 +20,11 @@ export class UsersService {
       data: {
         email: dto.email,
         password: dto.password,
-        role: (dto.role ?? Role.CLIENTE) as PrismaRole, // 👈 casteo necesario
+        role: (dto.role ?? Role.EMPLEADO) as PrismaRole, // 👈 casteo necesario
+        isEmailVerified: false,
+        username: dto.email.split("@")[0], // 👈 username por defecto
+        firstName: dto.email.split("@")[0], // 👈 firstName por defecto
+        lastName: dto.email.split("@")[0], // 👈 lastName por defecto
       },
     });
   }
@@ -52,6 +55,15 @@ export class UsersService {
       where: { id: userId },
       data: {
         password: hashedPassword,
+      },
+    });
+  }
+
+  async updateLastLogin(userId: number): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        lastLoginAt: new Date(),
       },
     });
   }
