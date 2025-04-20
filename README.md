@@ -1,5 +1,3 @@
----
-
 # 📌 auth-back-model
 
 **auth-back-model** es un backend desarrollado con NestJS que proporciona funcionalidades completas de autenticación y gestión de usuarios. Este proyecto es ideal para aplicaciones que requieren un sistema robusto de autenticación, incluyendo verificación por correo electrónico, restablecimiento de contraseñas y control de roles de usuario.
@@ -157,5 +155,3 @@ Para consultas o soporte, por favor contacta a:
 
 - **Nombre**: Sebastián Ch.
 - **Correo Electrónico**: schaquila@autonoma.edu.pe
-
----
