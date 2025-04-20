@@ -27,7 +27,7 @@ export const validationSchema = Joi.object({
   MAIL_PASS: Joi.string().required(),
 
   // 🌍 Frontend / App
-  APP_URL: Joi.string().uri().required(),
+  APP_URL_BACKEND: Joi.string().uri().required(),
 
   // 👑 Cuenta admin inicial (para seed)
   ADMIN_EMAIL: Joi.string().email().required(),

@@ -222,7 +222,7 @@ export class AuthController {
   async forgotPassword(
     @Body() dto: ForgotPasswordDto
   ): Promise<MessageResponseDto> {
-    await this.authService.forgotPassword(dto.email);
+    await this.authService.sendResetPasswordEmail(dto.email);
     return {
       message: "Correo enviado para restablecer contraseña",
       statusCode: 200,

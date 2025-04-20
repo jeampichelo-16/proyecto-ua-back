@@ -123,7 +123,7 @@ export class AuthService {
       });
     }
 
-    const appUrl = this.configService.get<string>("APP_URL")!;
+    const appUrl = this.configService.get<string>("APP_URL_BACKEND")!;
     const token = jwt.sign(
       payload,
       this.configService.get("JWT_VERIFICATION_SECRET_EMAIL")!,
@@ -247,7 +247,7 @@ export class AuthService {
       }
     );
 
-    const appUrl = this.configService.get<string>("APP_URL")!;
+    const appUrl = this.configService.get<string>("APP_URL_BACKEND")!;
     const verificationUrl = `${appUrl}/api/auth/verify-email?token=${token}`;
 
     await this.mailService.sendTemplateEmail(
@@ -262,7 +262,7 @@ export class AuthService {
   }
 
   // src/auth/auth.service.ts
-  async forgotPassword(email: string): Promise<void> {
+  async sendResetPasswordEmail(email: string): Promise<void> {
     const user = await this.usersService.findByEmail(email);
 
     // 🔐 Bloqueamos si no existe o si no tiene un rol permitido
@@ -278,40 +278,6 @@ export class AuthService {
 
     const token = jwt.sign(
       payload,
-      this.configService.get("JWT_VERIFICATION_SECRET_EMAIL")!,
-      {
-        expiresIn: this.configService.get("TIMEOUT_VERIFICATION_TOKEN_EMAIL"),
-      }
-    );
-
-    const resetUrl = `${this.configService.get(
-      "APP_URL"
-    )}/api/auth/reset-password?token=${token}`;
-
-    await this.mailService.sendTemplateEmail(
-      user.email,
-      "Restablece tu contraseña",
-      MailTemplate.RESET_PASSWORD,
-      {
-        name: user.email,
-        link: resetUrl,
-      }
-    );
-  }
-
-  async sendResetPasswordEmail(email: string): Promise<void> {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) {
-      throw new BadRequestException({
-        statusCode: 400,
-        message: "El correo no está registrado",
-        error: "Bad Request",
-      });
-    }
-
-    const payload = { sub: user.id, type: "reset" };
-    const token = jwt.sign(
-      payload,
       this.configService.get<string>("JWT_VERIFICATION_SECRET_EMAIL")!,
       {
         expiresIn: this.configService.get<string>(
@@ -320,9 +286,10 @@ export class AuthService {
       }
     );
 
+    //URL FRONTEND
     const resetUrl = `${this.configService.get(
-      "APP_URL"
-    )}/reset-password?token=${token}`;
+      "APP_URL_FRONTEND"
+    )}/auth/reset-password?token=${token}`;
 
     await this.mailService.sendTemplateEmail(
       user.email,
@@ -339,7 +306,8 @@ export class AuthService {
     try {
       const payload = jwt.verify(
         token,
-        this.configService.get<string>("JWT_VERIFICATION_SECRET_EMAIL")!
+        this.configService.get<string>("JWT_VERIFICATION_SECRET_EMAIL")!,
+        { algorithms: ["HS256"] } // ✅ Protección extra
       ) as jwt.JwtPayload;
 
       if (payload.type !== "reset") {
@@ -359,8 +327,22 @@ export class AuthService {
         });
       }
 
+      // ✅ Evitar usar la misma contraseña anterior
+      const isSame = await bcrypt.compare(newPassword, user.password);
+      if (isSame) {
+        throw new BadRequestException({
+          statusCode: 400,
+          message: "La nueva contraseña no puede ser igual a la anterior",
+          error: "Bad Request",
+        });
+      }
+
+      // ✅ Hashea y actualiza la nueva contraseña
       const hashed = await bcrypt.hash(newPassword, 10);
       await this.usersService.updatePassword(user.id, hashed);
+
+      // ✅ Invalida sesión anterior (refresh token)
+      await this.usersService.clearRefreshToken(user.id);
     } catch (err) {
       throw new BadRequestException({
         statusCode: 400,

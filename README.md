@@ -20,7 +20,7 @@ Este proyecto implementa un sistema de autenticación robusto usando:
   - `DATABASE_URL`
   - `JWT_SECRET`, `JWT_REFRESH_SECRET`, `JWT_VERIFICATION_SECRET_EMAIL`
   - `TIMEOUT_VERIFICATION_TOKEN_EMAIL`
-  - `APP_URL`
+  - `APP_URL_BACKEND`
   - y configuraciones de correo (SMTP)
 
 ---
