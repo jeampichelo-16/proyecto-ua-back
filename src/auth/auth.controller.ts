@@ -17,12 +17,10 @@ import { SkipThrottle } from "@nestjs/throttler";
 
 // DTOs del módulo auth
 import { LoginDto } from "./dto/login.dto";
-import { ResendVerificationDto } from "./dto/resend-verification.dto";
 
 // DTOs comunes
 import { MessageResponseDto } from "src/common/dto/message-response.dto";
 import { ErrorResponseDto } from "src/common/dto/error-response.dto";
-import { TokensResponseDto } from "src/common/dto/tokens-response.dto";
 import { VerifyEmailResponseDto } from "src/common/dto/verify-email-response.dto";
 
 // Tipado de req.user
@@ -179,6 +177,7 @@ export class AuthController {
     }
   }
 
+  /*
   @Public()
   @Post("resend-verification")
   @HttpCode(200)
@@ -197,19 +196,22 @@ export class AuthController {
       success: true,
     };
   }
+  */
 
-  @Public()
-  @SkipThrottle()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @OnlyRoles(AppRole.ADMIN, AppRole.EMPLEADO)
   @Post("forgot-password")
   @HttpCode(200)
   @ApiOperation({ summary: "Solicitar recuperación de contraseña" })
   @ApiBody({ type: ForgotPasswordDto })
   @ApiResponse({ status: 200, type: MessageResponseDto })
   @ApiResponse({ status: 400, type: ErrorResponseDto })
+  @ApiResponse({ status: 429, type: ThrottleErrorDto })
   async forgotPassword(
+    @Req() req: AuthenticatedRequest,
     @Body() dto: ForgotPasswordDto
   ): Promise<MessageResponseDto> {
-    await this.authService.sendResetPasswordEmail(dto.email);
+    await this.authService.sendResetPasswordEmail(dto.email, req.user.email);
     return {
       message: "Correo enviado para restablecer contraseña",
       statusCode: 200,

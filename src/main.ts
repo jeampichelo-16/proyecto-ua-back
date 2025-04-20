@@ -7,8 +7,11 @@ import { ConfigService } from "@nestjs/config";
 
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { BadRequestException, ValidationPipe } from "@nestjs/common";
+import { validateMailTemplatesOnStartup } from "./config/validate-mail-template";
 
 async function bootstrap() {
+  validateMailTemplatesOnStartup();
+
   const app = await NestFactory.create(AppModule);
   const loggerMiddleware = new LoggerMiddleware();
 
@@ -29,8 +32,8 @@ async function bootstrap() {
       exceptionFactory: () => {
         return new BadRequestException({
           statusCode: 400,
-          message: 'Datos inválidos',
-          error: 'Bad Request',
+          message: "Datos inválidos",
+          error: "Bad Request",
         });
       },
     })

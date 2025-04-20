@@ -21,7 +21,7 @@ import { RolesGuard } from "src/common/guards/roles.guard";
 import { OnlyRoles } from "src/common/decorators/roles.decorator";
 import { Role } from "src/common/enum/role.enum";
 import { AdminService } from "./admin.service";
-import { CreateUserDto, UserResponseDto } from "src/users/dto";
+import { UserResponseDto } from "src/users/dto";
 import { ThrottleErrorDto } from "src/common/dto/throttle-error.dto";
 import { ErrorResponseDto } from "src/common/dto/error-response.dto";
 

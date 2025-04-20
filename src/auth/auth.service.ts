@@ -39,7 +39,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly mailService: MailService
   ) {}
-  
+
   async validateUser(
     email: string,
     password: string,
@@ -154,40 +154,11 @@ export class AuthService {
     await this.usersService.clearRefreshToken(userId);
   }
 
-  async resendVerificationEmail(email: string): Promise<void> {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) throwNotFound("Usuario no encontrado");
-    if (user.isEmailVerified) throwBadRequest("Este correo ya fue verificado");
+  async sendResetPasswordEmail(email: string, currentUserEmail: string): Promise<void> {
+    if (email !== currentUserEmail) {
+      throwUnauthorized("No puedes solicitar recuperación para otro usuario");
+    }
 
-    const payload = { sub: user.id, type: "verify" };
-    const token = jwt.sign(
-      payload,
-      this.configService.get<string>("JWT_VERIFICATION_SECRET_EMAIL")!,
-      {
-        expiresIn: this.configService.get<string>(
-          "TIMEOUT_VERIFICATION_TOKEN_EMAIL"
-        ),
-      }
-    );
-
-    const verificationUrl = generateFrontendUrl(
-      this.configService.get<string>("APP_URL_BACKEND")!,
-      "/api/auth/verify-email",
-      token
-    );
-
-    await this.mailService.sendTemplateEmail(
-      user.email,
-      "Confirma tu correo electrónico",
-      MailTemplate.VERIFY,
-      {
-        name: user.email,
-        link: verificationUrl,
-      }
-    );
-  }
-
-  async sendResetPasswordEmail(email: string): Promise<void> {
     const user = await this.usersService.findByEmail(email);
 
     if (!user) throwNotFound("Usuario no encontrado");
@@ -252,6 +223,39 @@ export class AuthService {
   }
 
   /*
+    async resendVerificationEmail(email: string): Promise<void> {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) throwNotFound("Usuario no encontrado");
+    if (user.isEmailVerified) throwBadRequest("Este correo ya fue verificado");
+
+    const payload = { sub: user.id, type: "verify" };
+    const token = jwt.sign(
+      payload,
+      this.configService.get<string>("JWT_VERIFICATION_SECRET_EMAIL")!,
+      {
+        expiresIn: this.configService.get<string>(
+          "TIMEOUT_VERIFICATION_TOKEN_EMAIL"
+        ),
+      }
+    );
+
+    const verificationUrl = generateFrontendUrl(
+      this.configService.get<string>("APP_URL_BACKEND")!,
+      "/api/auth/verify-email",
+      token
+    );
+
+    await this.mailService.sendTemplateEmail(
+      user.email,
+      "Confirma tu correo electrónico",
+      MailTemplate.VERIFY,
+      {
+        name: user.email,
+        link: verificationUrl,
+      }
+    );
+  }
+
   async registerUser(dto: RegisterDto) {
     const existingUser = await this.usersService.findByEmail(dto.email);
     if (existingUser) {
