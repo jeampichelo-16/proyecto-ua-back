@@ -12,6 +12,7 @@ import { validationSchema } from "./config/validation.schema";
 import { AdminModule } from "./admin/admin.module";
 import { PrismaService } from "./prisma/prisma.service";
 import { PrismaModule } from "./prisma/prisma.module";
+import { EmployeeModule } from './employee/employee.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     ConfigModule,
     AdminModule,
     PrismaModule,
+    EmployeeModule,
   ],
   controllers: [AppController],
   providers: [

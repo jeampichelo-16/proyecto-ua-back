@@ -94,4 +94,32 @@ export class UsersService {
       lastLoginAt: user.lastLoginAt,
     };
   }
+
+  async getProductsById(userId: number) {
+    // Simulación: verifica que el usuario exista
+    const user = await this.findById(userId);
+    if (!user) throwNotFound("Usuario no encontrado");
+
+    // Datos simulados de productos
+    return [
+      {
+        id: 1,
+        name: "Plataforma elevadora A",
+        status: "Disponible",
+        price: 1500,
+      },
+      {
+        id: 2,
+        name: "Plataforma elevadora B",
+        status: "En uso",
+        price: 1800,
+      },
+      {
+        id: 3,
+        name: "Plataforma elevadora C",
+        status: "Mantenimiento",
+        price: 0,
+      },
+    ];
+  }
 }

@@ -24,13 +24,13 @@ import { ErrorResponseDto } from "src/common/dto/error-response.dto";
 import { AuthenticatedRequest } from "src/common/types/authenticated-user";
 
 @SkipThrottle()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@OnlyRoles(Role.ADMIN, Role.EMPLEADO)
 @ApiTags("users")
 @Controller("users")
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @OnlyRoles(Role.ADMIN, Role.EMPLEADO)
   @Get("profile")
   @ApiBearerAuth()
   @ApiOperation({ summary: "Obtener perfil del usuario autenticado" })
@@ -39,5 +39,14 @@ export class UsersController {
   @ApiResponse({ status: 429, type: ThrottleErrorDto })
   async getProfile(@Req() req: AuthenticatedRequest): Promise<UserResponseDto> {
     return this.usersService.getProfileById(req.user.id);
+  }
+
+  @Get("products")
+  @ApiOperation({ summary: "Obtener productos del usuario autenticado" })
+  @ApiResponse({ status: 200, type: UserResponseDto })
+  @ApiResponse({ status: 404, type: ErrorResponseDto })
+  @ApiResponse({ status: 429, type: ThrottleErrorDto })
+  async getProducts(@Req() req: AuthenticatedRequest) {
+    return this.usersService.getProductsById(req.user.id);
   }
 }
