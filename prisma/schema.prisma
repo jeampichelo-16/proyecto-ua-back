@@ -38,6 +38,8 @@ model User {
   isEmailVerified Boolean   @default(false)
   isActive        Boolean   @default(true)
   lastLoginAt     DateTime?
+  resetPasswordToken    String?   // Hasheado (nunca texto plano)
+  resetPasswordExpires  DateTime? // Cuándo expira el token
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

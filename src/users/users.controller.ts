@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  UseGuards,
-  Req,
-  NotFoundException,
-  HttpStatus,
-} from "@nestjs/common";
+import { Controller, Get, UseGuards, Req } from "@nestjs/common";
 import { JwtAuthGuard } from "src/auth/guards/jwt-auth.guard";
 import { UsersService } from "./users.service";
 import { UserResponseDto } from "./dto";
@@ -39,14 +32,5 @@ export class UsersController {
   @ApiResponse({ status: 429, type: ThrottleErrorDto })
   async getProfile(@Req() req: AuthenticatedRequest): Promise<UserResponseDto> {
     return this.usersService.getProfileById(req.user.id);
-  }
-
-  @Get("products")
-  @ApiOperation({ summary: "Obtener productos del usuario autenticado" })
-  @ApiResponse({ status: 200, type: UserResponseDto })
-  @ApiResponse({ status: 404, type: ErrorResponseDto })
-  @ApiResponse({ status: 429, type: ThrottleErrorDto })
-  async getProducts(@Req() req: AuthenticatedRequest) {
-    return this.usersService.getProductsById(req.user.id);
   }
 }

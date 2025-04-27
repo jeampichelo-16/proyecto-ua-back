@@ -12,7 +12,7 @@ import { validationSchema } from "./config/validation.schema";
 import { AdminModule } from "./admin/admin.module";
 import { PrismaService } from "./prisma/prisma.service";
 import { PrismaModule } from "./prisma/prisma.module";
-import { EmployeeModule } from './employee/employee.module';
+import { EmployeeModule } from "./employee/employee.module";
 
 @Module({
   imports: [
@@ -24,7 +24,8 @@ import { EmployeeModule } from './employee/employee.module';
       throttlers: [
         {
           ttl: 60000, // tiempo en segundos
-          limit: 6, // número de peticiones permitidas
+          limit: 5, // número de peticiones permitidas
+          
         },
       ],
     }),

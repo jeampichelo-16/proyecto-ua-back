@@ -58,12 +58,23 @@ export class UsersService {
     });
   }
 
-  async updatePassword(userId: number, hashedPassword: string): Promise<void> {
+  async updatePassword(userId: number, data: Partial<User>): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+  }
+
+  async updateResetPasswordData(
+    userId: number,
+    token: string,
+    expiresAt: Date
+  ): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        password: hashedPassword,
-        updatedAt: new Date(),
+        resetPasswordToken: token,
+        resetPasswordExpires: expiresAt,
       },
     });
   }
@@ -93,33 +104,5 @@ export class UsersService {
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt,
     };
-  }
-
-  async getProductsById(userId: number) {
-    // Simulación: verifica que el usuario exista
-    const user = await this.findById(userId);
-    if (!user) throwNotFound("Usuario no encontrado");
-
-    // Datos simulados de productos
-    return [
-      {
-        id: 1,
-        name: "Plataforma elevadora A",
-        status: "Disponible",
-        price: 1500,
-      },
-      {
-        id: 2,
-        name: "Plataforma elevadora B",
-        status: "En uso",
-        price: 1800,
-      },
-      {
-        id: 3,
-        name: "Plataforma elevadora C",
-        status: "Mantenimiento",
-        price: 0,
-      },
-    ];
   }
 }

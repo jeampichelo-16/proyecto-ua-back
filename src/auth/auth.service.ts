@@ -1,10 +1,6 @@
 // auth.service.ts mejorado con estructura enriquecida de errores y respuestas
 
-import {
-  Injectable,
-  UnauthorizedException,
-  BadRequestException,
-} from "@nestjs/common";
+import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcrypt";
@@ -30,6 +26,7 @@ import {
   throwUnauthorized,
 } from "src/common/utils/errors";
 import { generateFrontendUrl } from "src/common/utils/generate-url";
+import { parseExpiration } from "../common/utils/parseExpiration";
 
 @Injectable()
 export class AuthService {
@@ -89,19 +86,6 @@ export class AuthService {
     return tokens;
   }
 
-  async verifyEmailToken(token: string): Promise<void> {
-    const payload = jwt.verify(
-      token,
-      this.configService.get<string>("JWT_VERIFICATION_SECRET_EMAIL")!
-    ) as jwt.JwtPayload;
-
-    const user = await this.usersService.findById(Number(payload.sub));
-    if (!user) throwNotFound("Usuario no encontrado");
-    if (user.isEmailVerified) throwBadRequest("Este correo ya fue verificado");
-
-    await this.usersService.verifyUserEmail(user.id);
-  }
-
   async refreshTokens(
     refreshToken: string,
     res: Response
@@ -154,44 +138,54 @@ export class AuthService {
     await this.usersService.clearRefreshToken(userId);
   }
 
-  async sendResetPasswordEmail(email: string, currentUserEmail: string): Promise<void> {
-    if (email !== currentUserEmail) {
-      throwUnauthorized("No puedes solicitar recuperación para otro usuario");
+  async sendResetPasswordEmail(email: string): Promise<void> {
+    try {
+      const user = await this.usersService.findByEmail(email);
+      const secret = this.configService.get<string>(
+        "JWT_VERIFICATION_SECRET_EMAIL"
+      )!;
+      const expiresIn = this.configService.get<string>(
+        "TIMEOUT_VERIFICATION_TOKEN_EMAIL"
+      )!;
+
+      if (!user) throwNotFound("Usuario no encontrado");
+      //observacion
+      if (!user.isEmailVerified || !user.isActive) {
+        throwBadRequest("Usuario no disponible para restablecer contraseña");
+      }
+
+      const payload = { sub: user.id, type: "reset" };
+
+      const token = jwt.sign(payload, secret, { expiresIn });
+
+      const expiresAt = new Date(Date.now() + parseExpiration(expiresIn));
+
+      await this.usersService.updateResetPasswordData(
+        user.id,
+        token,
+        expiresAt
+      );
+
+      const resetUrl = generateFrontendUrl(
+        this.configService.get<string>("APP_URL_FRONTEND")!,
+        "/auth/restablecer-contrasena",
+        token
+      );
+
+      await this.mailService.sendTemplateEmail(
+        user.email,
+        "Restablece tu contraseña",
+        MailTemplate.RESET_PASSWORD,
+        {
+          name: user.email,
+          link: resetUrl,
+        }
+      );
+    } catch (error) {
+      throwBadRequest(
+        "Error al enviar el correo de recuperación de contraseña"
+      );
     }
-
-    const user = await this.usersService.findByEmail(email);
-
-    if (!user) throwNotFound("Usuario no encontrado");
-    if (user.role !== Role.EMPLEADO)
-      throwForbidden("Solo empleados autorizados");
-
-    const payload = { sub: user.id, type: "reset" };
-
-    const token = jwt.sign(
-      payload,
-      this.configService.get<string>("JWT_VERIFICATION_SECRET_EMAIL")!,
-      {
-        expiresIn: this.configService.get<string>(
-          "TIMEOUT_VERIFICATION_TOKEN_EMAIL"
-        ),
-      }
-    );
-
-    const resetUrl = generateFrontendUrl(
-      this.configService.get("APP_URL_FRONTEND")!,
-      "/auth/reset-password",
-      token
-    );
-
-    await this.mailService.sendTemplateEmail(
-      user.email,
-      "Restablece tu contraseña",
-      MailTemplate.RESET_PASSWORD,
-      {
-        name: user.email,
-        link: resetUrl,
-      }
-    );
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
@@ -209,13 +203,33 @@ export class AuthService {
       const user = await this.usersService.findById(Number(payload.sub));
       if (!user) throwNotFound("Usuario no encontrado");
 
+      if (!user.resetPasswordToken || !user.resetPasswordExpires) {
+        throwBadRequest(
+          "No hay solicitud activa de recuperación de contraseña"
+        );
+      }
+
+      if (user.resetPasswordToken !== token) {
+        throwBadRequest("Token de recuperación no coincide");
+      }
+      if (user.resetPasswordExpires.getTime() < Date.now()) {
+        throwBadRequest("El enlace de recuperación ha expirado");
+      }
+
       const isSame = await bcrypt.compare(newPassword, user.password);
       if (isSame) {
         throwBadRequest("La nueva contraseña no puede ser igual a la anterior");
       }
 
       const hashed = await bcrypt.hash(newPassword, 10);
-      await this.usersService.updatePassword(user.id, hashed);
+
+      await this.usersService.updatePassword(user.id, {
+        password: hashed,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+        updatedAt: new Date(),
+      });
+
       await this.usersService.clearRefreshToken(user.id);
     } catch (err) {
       throwBadRequest("Token inválido o expirado");
@@ -307,4 +321,18 @@ export class AuthService {
     return { id: user.id, email: user.email };
   }
   */
+
+  /*
+  async verifyEmailToken(token: string): Promise<void> {
+    const payload = jwt.verify(
+      token,
+      this.configService.get<string>("JWT_VERIFICATION_SECRET_EMAIL")!
+    ) as jwt.JwtPayload;
+
+    const user = await this.usersService.findById(Number(payload.sub));
+    if (!user) throwNotFound("Usuario no encontrado");
+    if (user.isEmailVerified) throwBadRequest("Este correo ya fue verificado");
+
+    await this.usersService.verifyUserEmail(user.id);
+  }*/
 }

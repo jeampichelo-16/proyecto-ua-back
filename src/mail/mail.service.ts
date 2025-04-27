@@ -3,7 +3,6 @@ import { ConfigService } from "@nestjs/config";
 import * as nodemailer from "nodemailer";
 import hbs from "nodemailer-express-handlebars";
 import { join } from "path";
-import { existsSync } from "fs";
 
 interface TemplatedMail {
   to: string;
