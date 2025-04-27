@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import * as nodemailer from "nodemailer";
 import hbs from "nodemailer-express-handlebars";
 import { join } from "path";
+import { throwBadRequest } from "src/common/utils/errors";
 
 interface TemplatedMail {
   to: string;
@@ -54,14 +55,18 @@ export class MailService implements OnModuleInit {
     template: string,
     context: Record<string, any>
   ): Promise<void> {
-    const mailOptions: TemplatedMail = {
-      from: '"Tu App" <no-reply@tuapp.com>',
-      to,
-      subject,
-      template,
-      context,
-    };
+    try {
+      const mailOptions: TemplatedMail = {
+        from: '"Tu App" <no-reply@tuapp.com>',
+        to,
+        subject,
+        template,
+        context,
+      };
 
-    await this.transporter.sendMail(mailOptions as any);
+      await this.transporter.sendMail(mailOptions as any);
+    } catch (error) {
+      throwBadRequest("Error al enviar el correo");
+    }
   }
 }

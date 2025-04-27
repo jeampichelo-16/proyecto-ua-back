@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { User, Role as PrismaRole } from "@prisma/client";
 import { CreateUserDto, UserResponseDto } from "./dto";
 import { Role } from "src/common/enum/role.enum";
@@ -89,20 +89,24 @@ export class UsersService {
   }
 
   async getProfileById(id: number): Promise<UserResponseDto> {
-    const user = await this.findById(id);
-    if (!user) throwNotFound("Usuario no encontrado");
+    try {
+      const user = await this.findById(id);
+      if (!user) throwNotFound("Usuario no encontrado");
 
-    return {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role as Role,
-      isActive: user.isActive,
-      isEmailVerified: user.isEmailVerified,
-      createdAt: user.createdAt,
-      lastLoginAt: user.lastLoginAt,
-    };
+      return {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role as Role,
+        isActive: user.isActive,
+        isEmailVerified: user.isEmailVerified,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt,
+      };
+    } catch (error) {
+      throwNotFound("Usuario no encontrado");
+    }
   }
 }

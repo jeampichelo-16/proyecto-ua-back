@@ -42,48 +42,56 @@ export class AuthService {
     password: string,
     expectedRole?: AppRole
   ): Promise<AuthenticatedUser> {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) throwUnauthorized("Credenciales inválidas");
+    try {
+      const user = await this.usersService.findByEmail(email);
+      if (!user) throwUnauthorized("Credenciales inválidas");
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) throwUnauthorized("Credenciales inválidas");
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) throwUnauthorized("Credenciales inválidas");
 
-    if (!user.isEmailVerified) {
-      throwUnauthorized(
-        "Debes verificar tu correo electrónico antes de iniciar sesión."
-      );
+      if (!user.isEmailVerified) {
+        throwUnauthorized(
+          "Debes verificar tu correo electrónico antes de iniciar sesión."
+        );
+      }
+
+      if (!user.isActive) {
+        throwUnauthorized("Tu cuenta ha sido desactivada");
+      }
+
+      if (expectedRole && user.role !== (expectedRole as PrismaRole)) {
+        throwUnauthorized(
+          `No tienes permisos para iniciar sesión como ${expectedRole}`
+        );
+      }
+
+      await this.usersService.updateLastLogin(user.id);
+
+      return {
+        id: user.id,
+        email: user.email,
+        role: user.role as AppRole,
+      };
+    } catch (error) {
+      throwUnauthorized("Error al validar el usuario");
     }
-
-    if (!user.isActive) {
-      throwUnauthorized("Tu cuenta ha sido desactivada");
-    }
-
-    if (expectedRole && user.role !== (expectedRole as PrismaRole)) {
-      throwUnauthorized(
-        `No tienes permisos para iniciar sesión como ${expectedRole}`
-      );
-    }
-
-    await this.usersService.updateLastLogin(user.id);
-
-    return {
-      id: user.id,
-      email: user.email,
-      role: user.role as AppRole,
-    };
   }
 
   async loginAndSaveRefreshToken(
     user: AuthenticatedUser
   ): Promise<TokensResponseDto> {
-    const tokens = generateTokens(this.jwt, this.configService, {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    });
+    try {
+      const tokens = generateTokens(this.jwt, this.configService, {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+      });
 
-    await this.usersService.updateRefreshToken(user.id, tokens.refreshToken);
-    return tokens;
+      await this.usersService.updateRefreshToken(user.id, tokens.refreshToken);
+      return tokens;
+    } catch (error) {
+      throwUnauthorized("Error al generar los tokens de autenticación");
+    }
   }
 
   async refreshTokens(
@@ -135,7 +143,11 @@ export class AuthService {
   }
 
   async logout(userId: number): Promise<void> {
-    await this.usersService.clearRefreshToken(userId);
+    try {
+      await this.usersService.clearRefreshToken(userId);
+    } catch (error) {
+      throwBadRequest("Error al cerrar sesión");
+    }
   }
 
   async sendResetPasswordEmail(email: string): Promise<void> {
