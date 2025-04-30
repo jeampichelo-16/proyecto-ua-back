@@ -10,4 +10,7 @@ export class MessageResponseDto {
 
   @ApiProperty({ example: true })
   success: boolean;
+
+  @ApiProperty({ example: null })
+  data?: any | null;
 }

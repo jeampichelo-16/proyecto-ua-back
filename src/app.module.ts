@@ -2,17 +2,22 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
-import { AuthModule } from "./auth/auth.module";
-import { UsersModule } from "./users/users.module";
-import { MailModule } from "./mail/mail.module";
+import { AuthModule } from "./modules/auth/auth.module";
+import { UsersModule } from "./modules/users/users.module";
+import { MailModule } from "./modules/mail/mail.module";
 
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
 import { validationSchema } from "./config/validation.schema";
-import { AdminModule } from "./admin/admin.module";
-import { PrismaService } from "./prisma/prisma.service";
-import { PrismaModule } from "./prisma/prisma.module";
-import { EmployeeModule } from "./employee/employee.module";
+import { AdminModule } from "./modules/admin/admin.module";
+import { PrismaService } from "./modules/prisma/prisma.service";
+import { PrismaModule } from "./modules/prisma/prisma.module";
+import { EmployeeModule } from "./modules/employee/employee.module";
+import { ClientsModule } from './modules/clients/clients.module';
+import { QuotationsModule } from './modules/quotations/quotations.module';
+import { PlatformsModule } from './modules/platforms/platforms.module';
+import { OperatorsModule } from './modules/operators/operators.module';
+import { FirebaseModule } from './modules/firebase/firebase.module';
 
 @Module({
   imports: [
@@ -36,6 +41,11 @@ import { EmployeeModule } from "./employee/employee.module";
     AdminModule,
     PrismaModule,
     EmployeeModule,
+    ClientsModule,
+    QuotationsModule,
+    PlatformsModule,
+    OperatorsModule,
+    FirebaseModule,
   ],
   controllers: [AppController],
   providers: [

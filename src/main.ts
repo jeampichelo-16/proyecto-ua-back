@@ -8,14 +8,21 @@ import { ConfigService } from "@nestjs/config";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { BadRequestException, ValidationPipe } from "@nestjs/common";
 import { validateMailTemplatesOnStartup } from "./config/validate-mail-template";
+import { NestExpressApplication } from "@nestjs/platform-express";
+import * as path from "path";
+import { MulterExceptionFilter } from "./common/utils/multer-exception.filter";
 
 async function bootstrap() {
   validateMailTemplatesOnStartup();
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const loggerMiddleware = new LoggerMiddleware();
 
   app.use(cookieParser());
+
+  app.useStaticAssets(path.join(__dirname, "..", "uploads"), {
+    prefix: "/uploads/",
+  });
 
   app.enableCors({
     origin: "http://localhost:5173",
@@ -24,6 +31,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix("api");
 
+  app.useGlobalFilters(new MulterExceptionFilter());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

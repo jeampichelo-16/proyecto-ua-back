@@ -2,14 +2,15 @@
 import { existsSync } from "fs";
 import { join } from "path";
 
-const REQUIRED_TEMPLATES = ["reset-password"];
+const REQUIRED_TEMPLATES = ["reset-password", "send-password"];
 
 export function validateMailTemplatesOnStartup() {
   const missing: string[] = [];
 
   for (const name of REQUIRED_TEMPLATES) {
-    const path = join(__dirname, "../mail/templates", `${name}.hbs`);
+    const path = join(__dirname, "../modules/mail/templates", `${name}.hbs`);
     if (!existsSync(path)) {
+      console.log("❌ Plantilla de correo faltante:", path);
       missing.push(`${name}.hbs`);
     }
   }

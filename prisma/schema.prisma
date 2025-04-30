@@ -19,40 +19,116 @@ enum Role {
   OPERARIO
 }
 
-enum OperarioStatus {
+enum OperatorStatus {
   ACTIVO
   EN_TRABAJO
-  DE_BAJA
+  INACTIVO
   NO_DISPONIBLE
 }
 
-model User {
-  id              Int       @id @default(autoincrement())
-  email           String    @unique
-  username        String    @unique
-  firstName       String
-  lastName        String
-  password        String
-  refreshToken    String?
-  role            Role      @default(EMPLEADO)
-  isEmailVerified Boolean   @default(false)
-  isActive        Boolean   @default(true)
-  lastLoginAt     DateTime?
-  resetPasswordToken    String?   // Hasheado (nunca texto plano)
-  resetPasswordExpires  DateTime? // Cuándo expira el token
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  operario Operario[]
+enum QuotationStatus {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
 }
 
-model Operario {
-  id             Int            @id @default(autoincrement())
-  userId         Int
-  status         String
-  operarioStatus OperarioStatus @default(ACTIVO)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+enum PlatformType {
+  ELECTRICO
+  DIESEL
+  OTRO
+}
 
-  user User @relation(fields: [userId], references: [id])
+enum PlatformStatus {
+  ACTIVO
+  EN_MANTENIMIENTO
+  INACTIVO
+}
+
+model User {
+  id                   Int       @id @default(autoincrement())
+  email                String    @unique
+  username             String    @unique
+  firstName            String
+  lastName             String
+  phone                String?
+  dni                  String    @unique
+  password             String
+  refreshToken         String?
+  role                 Role      @default(EMPLEADO)
+  isEmailVerified      Boolean   @default(false)
+  isActive             Boolean   @default(true)
+  lastLoginAt          DateTime?
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  operario Operator[]
+}
+
+model Operator {
+  id                         Int            @id @default(autoincrement())
+  userId                     Int
+  operatorStatus             OperatorStatus @default(ACTIVO)
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
+  emoPDFPath                 String
+  operativityCertificatePath String
+
+  user       User        @relation(fields: [userId], references: [id])
+  quotations Quotation[] // 🔥 Cambio correcto aquí (plural y sin typo)
+}
+
+model Client {
+  id          Int      @id @default(autoincrement())
+  name        String
+  email       String?  @unique
+  phone       String?
+  ruc         String?  @unique
+  companyName String?
+  address     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  quotations Quotation[]
+}
+
+model Quotation {
+  id           Int             @id @default(autoincrement())
+  clientId     Int
+  platformId   Int             @unique
+  operatorId   Int // 🔥 SIN @unique aquí
+  description  String
+  amount       Float
+  subtotal     Float
+  igv          Float
+  total        Float
+  typeCurrency String
+  status       QuotationStatus @default(PENDIENTE)
+  days         Int
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  client   Client   @relation(fields: [clientId], references: [id])
+  platform Platform @relation("PlatformQuotation", fields: [platformId], references: [id])
+  operator Operator @relation(fields: [operatorId], references: [id]) // 🔥 Correcto ahora
+}
+
+model Platform {
+  id                         Int            @id @default(autoincrement())
+  brand                      String
+  model                      String
+  typePlatform               PlatformType   @default(ELECTRICO)
+  price                      Float
+  status                     PlatformStatus @default(ACTIVO)
+  horometerMaintenance       Int
+  description                String?
+  operativityCertificatePath String
+  ownershipDocumentPath      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quotation Quotation? @relation("PlatformQuotation")
 }

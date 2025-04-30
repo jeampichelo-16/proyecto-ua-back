@@ -13,6 +13,8 @@ async function main() {
   const adminUsername = process.env.ADMIN_USERNAME!;
   const adminFirstName = process.env.ADMIN_FIRST_NAME!;
   const adminLastName = process.env.ADMIN_LAST_NAME!;
+  const adminPhone = process.env.ADMIN_PHONE!;
+  const adminDNI = process.env.ADMIN_DNI!;
 
   // Empleado
   const employeeEmail = process.env.EMPLOYEE_EMAIL!;
@@ -20,9 +22,15 @@ async function main() {
   const employeeUsername = process.env.EMPLOYEE_USERNAME!;
   const employeeFirstName = process.env.EMPLOYEE_FIRST_NAME!;
   const employeeLastName = process.env.EMPLOYEE_LAST_NAME!;
+  const employeePhone = process.env.EMPLOYEE_PHONE!;
+  const employeeDNI = process.env.EMPLOYEE_DNI!;
 
-  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
-  const existingEmployee = await prisma.user.findUnique({ where: { email: employeeEmail } });
+  const existingAdmin = await prisma.user.findUnique({
+    where: { email: adminEmail },
+  });
+  const existingEmployee = await prisma.user.findUnique({
+    where: { email: employeeEmail },
+  });
 
   if (!existingAdmin) {
     const hashedAdmin = await bcrypt.hash(adminPassword, 10);
@@ -32,6 +40,8 @@ async function main() {
         username: adminUsername,
         firstName: adminFirstName,
         lastName: adminLastName,
+        phone: adminPhone,
+        dni: adminDNI,
         password: hashedAdmin,
         role: Role.ADMIN,
         isEmailVerified: true,
@@ -44,17 +54,21 @@ async function main() {
 
   if (!existingEmployee) {
     const hashedEmployee = await bcrypt.hash(employeePassword, 10);
+    //quiero crear varios empleado
     await prisma.user.create({
       data: {
         email: employeeEmail,
         username: employeeUsername,
         firstName: employeeFirstName,
         lastName: employeeLastName,
+        phone: employeePhone,
+        dni: employeeDNI,
         password: hashedEmployee,
         role: Role.EMPLEADO,
         isEmailVerified: true,
       },
     });
+
     console.log(`✅ Empleado seed creado: ${employeeEmail}`);
   } else {
     console.log("✅ Empleado ya existe.");

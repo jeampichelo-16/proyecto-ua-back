@@ -62,3 +62,16 @@ export function throwConflict(message = "Conflicto con la operación"): never {
     error: "Conflict",
   });
 }
+
+/**
+ * 500 - Error interno del servidor
+ */
+export function throwInternalServer(
+  message = "Error interno del servidor"
+): never {
+  throw new BadRequestException({
+    statusCode: 500,
+    message,
+    error: "Internal Server Error",
+  });
+}
