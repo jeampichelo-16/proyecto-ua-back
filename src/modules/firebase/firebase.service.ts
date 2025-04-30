@@ -98,23 +98,36 @@ export class FirebaseService implements OnModuleInit {
     try {
       const filePath = this.extractStoragePathFromUrl(url);
       await this.storage.file(filePath).delete();
-    } catch (error) {
+    } catch (error: any) {
+      // Ignorar error si el archivo no existe (404)
+      if (error.code === 404) {
+        console.warn(
+          `[FirebaseStorage] Archivo no encontrado para eliminar: ${url}`
+        );
+        return;
+      }
+
       handleServiceError(error, "Error al eliminar archivo en Firebase");
     }
   }
 
   private extractStoragePathFromUrl(url: string): string {
     try {
-      const decodedPath = decodeURIComponent(new URL(url).pathname);
-      // Ej: "/project-jose-back.appspot.com/operators%2F5555555121%2Femo-certificado-123.pdf"
-      // Queremos: "operators/5555555121/emo-certificado-123.pdf"
-      const match = decodedPath.match(/\/[^\/]+\/(.+)/); // toma todo después del bucket
-      if (!match || !match[1]) throw new Error("No se pudo extraer el path");
-      return match[1].replace(/%2F/g, "/");
+      const parsed = new URL(url);
+      const fullPath = decodeURIComponent(parsed.pathname); // '/<bucket-name>/<file-path>'
+
+      // Eliminamos el nombre del bucket (primer segmento)
+      const parts = fullPath.split("/");
+      if (parts.length < 3) {
+        throw new Error("URL de Firebase inválida");
+      }
+
+      // Ejemplo: ['', 'bucket-name', 'machines/PLT-XXX/file.pdf'] → reconstruimos desde el tercer segmento
+      const storagePath = parts.slice(2).join("/");
+      return storagePath;
     } catch (error) {
-      handleServiceError(
-        error,
-        "Error al extraer el path del archivo en Firebase Storage"
+      throw new Error(
+        "❌ Error al extraer el path del archivo en Firebase Storage"
       );
     }
   }

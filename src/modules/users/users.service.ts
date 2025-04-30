@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { User } from "@prisma/client";
+import { Quotation, User } from "@prisma/client";
 import { CreateUserDto, UserResponseDto } from "./dto";
 import { Role } from "src/common/enum/role.enum";
 import { PrismaService } from "src/modules/prisma/prisma.service";
@@ -14,10 +14,20 @@ import { handleServiceError } from "src/common/utils/handle-error.util";
 import { generateSecurePassword } from "src/common/utils/password-generator";
 import * as bcrypt from "bcrypt";
 import { UpdateOperatorDto } from "../operators/dto/update-operator.dto";
+import { ClientResponseDto } from "../clients/dto/client-response.dto";
+import { ClientsService } from "../clients/clients.service";
+import { CreateClientDto } from "../clients/dto/create-client.dto";
+import { UpdateClientDto } from "../clients/dto/update-client.dto";
+import { CreateQuotationDto } from "../quotations/dto/create-quotation.dto";
+import { QuotationsService } from "../quotations/quotations.service";
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly clientsService: ClientsService,
+    private readonly quotationsService: QuotationsService
+  ) {}
 
   // AUTH - LOGIN / REESTABLECER CONTRASEÑA - ADMIN / LISTAR EMPLEADOS PAGINADOS / CREAR EMPLEADO
   async findByEmail(email: string): Promise<User | null> {
@@ -44,7 +54,7 @@ export class UsersService {
     }
   }
 
-  // AUTH - LOGIN
+  // AUTH / USER - LOGIN
   async getProfileById(id: number): Promise<UserResponseDto> {
     try {
       const user = await this.findById(id);
@@ -404,6 +414,120 @@ export class UsersService {
       });
     } catch (error) {
       handleServiceError(error, "Error al actualizar datos del usuario");
+    }
+  }
+
+  //USER - LISTAR CLIENTES PAGINADOS
+  async getAllClientsPaginated(
+    page: number,
+    pageSize: number
+  ): Promise<{
+    clients: ClientResponseDto[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    try {
+      const { data, total } = await this.clientsService.getAllClientsPaginated(
+        page,
+        pageSize
+      );
+
+      const clients: ClientResponseDto[] = data.map((client) => ({
+        id: client.id,
+        name: client.name,
+        email: client.email ?? null,
+        phone: client.phone ?? null,
+        ruc: client.ruc ?? null,
+        companyName: client.companyName ?? null,
+        address: client.address ?? null,
+        isActive: client.isActive,
+        createdAt: client.createdAt,
+        updatedAt: client.updatedAt,
+      }));
+
+      return {
+        clients,
+        total,
+        page,
+        pageSize,
+      };
+    } catch (error) {
+      handleServiceError(
+        error,
+        "Error al obtener la lista de clientes paginada"
+      );
+    }
+  }
+
+  //USER - CREAR CLIENTE
+  async createClient(dto: CreateClientDto) {
+    try {
+      const client = await this.clientsService.createClient(dto);
+
+      if (!client) {
+        throwBadRequest("No se pudo crear el cliente");
+      }
+    } catch (error) {
+      handleServiceError(error, "Error al crear el cliente");
+    }
+  }
+
+  //USER - ACTUALIZAR CLIENTE
+  async updateClient(clientId: number, dto: UpdateClientDto): Promise<void> {
+    try {
+      const client = await this.clientsService.findById(clientId);
+      if (!client) throwNotFound("Cliente no encontrado");
+
+      await this.clientsService.updateClient(clientId, dto);
+    } catch (error) {
+      handleServiceError(error, "Error al actualizar el cliente");
+    }
+  }
+
+  //USER - OBTENER CLIENTE POR ID
+  async getClientById(clientId: number): Promise<ClientResponseDto> {
+    try {
+      const client = await this.clientsService.findById(clientId);
+      if (!client) throwNotFound("Cliente no encontrado");
+
+      const clientProfile = {
+        id: client.id,
+        name: client.name,
+        email: client.email ?? null,
+        phone: client.phone ?? null,
+        ruc: client.ruc ?? null,
+        companyName: client.companyName ?? null,
+        address: client.address ?? null,
+        isActive: client.isActive,
+        createdAt: client.createdAt,
+        updatedAt: client.updatedAt,
+      };
+
+      return clientProfile;
+    } catch (error) {
+      handleServiceError(error, "Error al obtener el cliente por ID");
+    }
+  }
+
+  //USER - ELIMINAR CLIENTE
+  async deleteClient(clientId: number): Promise<void> {
+    try {
+      const client = await this.clientsService.findById(clientId);
+      if (!client) throwNotFound("Cliente no encontrado");
+
+      await this.clientsService.deleteClient(clientId);
+    } catch (error) {
+      handleServiceError(error, "Error al eliminar el cliente");
+    }
+  }
+
+  //QUOTATIONS - REGISTRAR COTIZACION
+  async createQuotation(dto: CreateQuotationDto) {
+    try {
+      await this.quotationsService.createQuotation(dto);
+    } catch (error) {
+      handleServiceError(error, "Error al registrar la cotización");
     }
   }
 

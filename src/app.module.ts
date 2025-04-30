@@ -18,6 +18,7 @@ import { QuotationsModule } from './modules/quotations/quotations.module';
 import { PlatformsModule } from './modules/platforms/platforms.module';
 import { OperatorsModule } from './modules/operators/operators.module';
 import { FirebaseModule } from './modules/firebase/firebase.module';
+import { PdfModule } from './modules/pdf/pdf.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
     PlatformsModule,
     OperatorsModule,
     FirebaseModule,
+    PdfModule,
   ],
   controllers: [AppController],
   providers: [

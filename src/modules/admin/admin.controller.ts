@@ -35,6 +35,9 @@ import { CreateOperatorDto } from "../operators/dto/create-operator.dto";
 import { UpdateOperatorDto } from "../operators/dto/update-operator.dto";
 import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { multerOptionsMemory } from "src/common/utils/multer-options.util";
+import { CreateMachineDto } from "../platforms/dto/create-platform.dto";
+import { UpdateMachineDto } from "../platforms/dto/update-machine.dto";
+import { MachineResponseDto } from "../platforms/dto/machine-response.dto";
 
 @SkipThrottle()
 @ApiTags("admin")
@@ -261,7 +264,126 @@ export class AdminController {
       success: true,
     };
   }
-  
+
   //maquinarias
+  @Post("machines")
+  @HttpCode(201)
+  @ApiOperation({ summary: "Crear una nueva maquinaria" })
+  @ApiConsumes("multipart/form-data")
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, type: ErrorResponseDto })
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: "operativityCertificatePath", maxCount: 1 },
+        { name: "ownershipDocumentPath", maxCount: 1 },
+      ],
+      multerOptionsMemory(2)
+    )
+  )
+  async createMachine(
+    @UploadedFiles()
+    files: {
+      operativityCertificatePath?: Express.Multer.File[];
+      ownershipDocumentPath?: Express.Multer.File[];
+    },
+    @Body() dto: CreateMachineDto // 👈 Aquí usa el nuevo DTO correcto
+  ): Promise<MessageResponseDto> {
+    await this.adminService.createMachineWithFiles(dto, files);
+
+    return {
+      message: "Maquinaria registrada correctamente",
+      statusCode: 201,
+      success: true,
+    };
+  }
+
+  @Patch("machines/:serial")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Actualizar una maquinaria existente" })
+  @ApiConsumes("multipart/form-data")
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, type: ErrorResponseDto })
+  @ApiParam({ name: "serial", type: String })
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: "operativityCertificatePath", maxCount: 1 },
+        { name: "ownershipDocumentPath", maxCount: 1 },
+      ],
+      multerOptionsMemory(2)
+    )
+  )
+  async updateMachine(
+    @Param("serial") serial: string,
+    @UploadedFiles()
+    files: {
+      operativityCertificatePath?: Express.Multer.File[];
+      ownershipDocumentPath?: Express.Multer.File[];
+    },
+    @Body() updateDto: UpdateMachineDto
+  ): Promise<MessageResponseDto> {
+    await this.adminService.updateMachineWithFiles(serial, updateDto, files);
+    return {
+      message: "Maquinaria actualizada correctamente",
+      success: true,
+      statusCode: 200,
+    };
+  }
+
+  @Get("machines/:serial")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Obtener el perfil de una maquinaria por serial" })
+  @ApiResponse({ status: 200, type: MachineResponseDto })
+  @ApiResponse({ status: 404, type: ErrorResponseDto })
+  @ApiParam({ name: "serial", type: String })
+  async getMachineBySerial(@Param("serial") serial: string) {
+    const machine = await this.adminService.getMachineBySerial(serial);
+
+    return {
+      message: "Maquinaria obtenida correctamente",
+      statusCode: 200,
+      success: true,
+      data: machine,
+    };
+  }
+
+  @Get("machines")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Listar todas las maquinarias",
+  })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 401, type: ErrorResponseDto })
+  async getAllMachinesPaginated(
+    @Query() paginationQuery: PaginationQueryDto
+  ): Promise<MessageResponseDto> {
+    const machinesPaginated = await this.adminService.getAllMachinesPaginated(
+      paginationQuery.page ?? 1,
+      paginationQuery.pageSize ?? 10
+    );
+    return {
+      message: "Lista de maquinarias obtenida correctamente",
+      statusCode: 200,
+      success: true,
+      data: machinesPaginated,
+    };
+  }
+
+  @Delete("machines/:serial")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Eliminar una maquinaria por serial" })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 404, type: ErrorResponseDto })
+  @ApiParam({ name: "serial", type: String })
+  async deleteMachine(@Param("serial") serial: string) {
+    await this.adminService.deleteMachine(serial);
+    return {
+      message: "Maquinaria eliminada correctamente",
+      statusCode: 200,
+      success: true,
+    };
+  }
+
   
 }

@@ -95,20 +95,21 @@ model Client {
 }
 
 model Quotation {
-  id           Int             @id @default(autoincrement())
-  clientId     Int
-  platformId   Int             @unique
-  operatorId   Int // 🔥 SIN @unique aquí
-  description  String
-  amount       Float
-  subtotal     Float
-  igv          Float
-  total        Float
-  typeCurrency String
-  status       QuotationStatus @default(PENDIENTE)
-  days         Int
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id            Int             @id @default(autoincrement())
+  clientId      Int
+  platformId    Int             @unique
+  operatorId    Int // 🔥 SIN @unique aquí
+  description   String
+  amount        Float
+  subtotal      Float
+  igv           Float
+  total         Float
+  typeCurrency  String
+  status        QuotationStatus @default(PENDIENTE)
+  days          Int
+  quotationPath String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
   client   Client   @relation(fields: [clientId], references: [id])
   platform Platform @relation("PlatformQuotation", fields: [platformId], references: [id])
@@ -117,12 +118,13 @@ model Quotation {
 
 model Platform {
   id                         Int            @id @default(autoincrement())
+  serial                     String         @unique
   brand                      String
   model                      String
   typePlatform               PlatformType   @default(ELECTRICO)
   price                      Float
   status                     PlatformStatus @default(ACTIVO)
-  horometerMaintenance       Int
+  horometerMaintenance       Int            @default(200)
   description                String?
   operativityCertificatePath String
   ownershipDocumentPath      String

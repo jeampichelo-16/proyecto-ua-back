@@ -18,6 +18,14 @@ import { validateNamedPDFUploads } from "src/common/utils/file.utils";
 import { UpdateOperatorDto } from "../operators/dto/update-operator.dto";
 import { FirebaseService } from "../firebase/firebase.service";
 import { OperatorStatus } from "src/common/enum/operator-status.enum";
+import { PlatformsService } from "../platforms/platforms.service";
+import { CreateMachineDto } from "../platforms/dto/create-platform.dto";
+import { generatePlatformSerial } from "src/common/utils/generate-platform-serial.util";
+import { UpdateMachineDto } from "../platforms/dto/update-machine.dto";
+import { PlatformStatus } from "src/common/enum/platform-status.enum";
+import { PlatformType } from "src/common/enum/platform-type.enum";
+import { MachineResponseDto } from "../platforms/dto/machine-response.dto";
+import { ClientsService } from "../clients/clients.service";
 
 @Injectable()
 export class AdminService {
@@ -25,7 +33,8 @@ export class AdminService {
     private readonly usersService: UsersService,
     private readonly mailService: MailService,
     private readonly operatorService: OperatorsService,
-    private readonly firebaseService: FirebaseService
+    private readonly firebaseService: FirebaseService,
+    private readonly platformsService: PlatformsService,
   ) {}
 
   async getClientsSummary() {
@@ -152,48 +161,6 @@ export class AdminService {
   }
 
   //OPERADORES
-  async getAllOperatorsPaginated(
-    page: number,
-    pageSize: number
-  ): Promise<{
-    users: UserResponseDto[];
-    total: number;
-    page: number;
-    pageSize: number;
-  }> {
-    try {
-      const { data, total } = await this.usersService.findUsersByRolesPaginated(
-        [Role.OPERARIO],
-        page,
-        pageSize
-      );
-
-      const users = data.map((user) => ({
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        dni: user.dni,
-        role: user.role as Role,
-        phone: user.phone,
-        isActive: user.isActive,
-      }));
-
-      return {
-        users,
-        total,
-        page,
-        pageSize,
-      };
-    } catch (error) {
-      handleServiceError(
-        error,
-        "Error al obtener la lista de operarios paginada"
-      );
-    }
-  }
-
   async createOperatorWithFiles(
     dto: CreateOperatorDto,
     files: {
@@ -202,7 +169,10 @@ export class AdminService {
     }
   ): Promise<void> {
     try {
-      validateNamedPDFUploads(files);
+      validateNamedPDFUploads(files, [
+        "emoPDFPath",
+        "operativityCertificatePath",
+      ]);
 
       const [existingEmailUser, existingDniUser] = await Promise.all([
         this.usersService.findByEmail(dto.email),
@@ -336,6 +306,48 @@ export class AdminService {
     );
   }
 
+  async getAllOperatorsPaginated(
+    page: number,
+    pageSize: number
+  ): Promise<{
+    users: UserResponseDto[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    try {
+      const { data, total } = await this.usersService.findUsersByRolesPaginated(
+        [Role.OPERARIO],
+        page,
+        pageSize
+      );
+
+      const users = data.map((user) => ({
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        dni: user.dni,
+        role: user.role as Role,
+        phone: user.phone,
+        isActive: user.isActive,
+      }));
+
+      return {
+        users,
+        total,
+        page,
+        pageSize,
+      };
+    } catch (error) {
+      handleServiceError(
+        error,
+        "Error al obtener la lista de operarios paginada"
+      );
+    }
+  }
+
   async getOperatorById(operatorId: number) {
     const operator = await this.operatorService.getById(operatorId);
 
@@ -373,5 +385,248 @@ export class AdminService {
     );
 
     await this.operatorService.deleteOperator(operatorId);
+  }
+
+  //PLATAFORMAS - MAQUINARIA
+  async createMachineWithFiles(
+    dto: CreateMachineDto,
+    files: {
+      operativityCertificatePath?: Express.Multer.File[];
+      ownershipDocumentPath?: Express.Multer.File[];
+    }
+  ): Promise<void> {
+    try {
+      validateNamedPDFUploads(files, [
+        "operativityCertificatePath",
+        "ownershipDocumentPath",
+      ]);
+
+      let serialPlatform: string;
+
+      do {
+        serialPlatform = generatePlatformSerial();
+      } while (await this.platformsService.getBySerial(serialPlatform));
+
+      const existsMachinery = await this.platformsService.getBySerial(
+        serialPlatform
+      );
+
+      if (existsMachinery) {
+        throwConflict("La maquinaria ya existe");
+      }
+
+      const folder = `machines/${serialPlatform}`;
+      const operativityPDF = files.operativityCertificatePath?.[0];
+      const ownershipPDF = files.ownershipDocumentPath?.[0];
+
+      if (!operativityPDF || !ownershipPDF) {
+        throwBadRequest("Archivos no válidos o faltantes");
+      }
+
+      const operativityPath = await this.firebaseService.uploadBuffer(
+        operativityPDF.buffer,
+        `${folder}/operatividad-certificado-${Date.now()}.pdf`,
+        operativityPDF.mimetype
+      );
+
+      const ownershipPath = await this.firebaseService.uploadBuffer(
+        ownershipPDF.buffer,
+        `${folder}/documento-propiedad-${Date.now()}.pdf`,
+        ownershipPDF.mimetype
+      );
+
+      await this.platformsService.createMachine(
+        dto,
+        serialPlatform,
+        operativityPath,
+        ownershipPath
+      );
+    } catch (error) {
+      handleServiceError(error, "Error al crear la maquinaria");
+    }
+  }
+
+  async updateMachineWithFiles(
+    machineSerial: string,
+    dto: UpdateMachineDto,
+    files: {
+      operativityCertificatePath?: Express.Multer.File[];
+      ownershipDocumentPath?: Express.Multer.File[];
+    }
+  ): Promise<void> {
+    try {
+      const machine = await this.platformsService.getBySerial(machineSerial);
+
+      if (!machine) throwNotFound("Maquinaria no encontrada");
+
+      const incomingDto: UpdateMachineDto = {
+        ...dto,
+        typePlatform: dto.typePlatform?.toUpperCase() as PlatformType,
+        status: dto.status?.toUpperCase() as PlatformStatus,
+      };
+
+      const hasDataChanges = await this.hasMachineChanges(
+        {
+          brand: machine.brand,
+          model: machine.model,
+          typePlatform: machine.typePlatform as PlatformType,
+          price: machine.price,
+          status: machine.status as PlatformStatus,
+          description: machine.description,
+        },
+        incomingDto
+      );
+
+      const hasFileChanges =
+        (files.operativityCertificatePath?.length ?? 0) > 0 ||
+        (files.ownershipDocumentPath?.length ?? 0) > 0;
+
+      if (!hasDataChanges && !hasFileChanges) {
+        throwBadRequest(
+          "No se han realizado cambios en los datos de la maquinaria o archivos"
+        );
+      }
+
+      const folder = `machines/${machineSerial}`;
+      let operativityPDFUrl = machine.operativityCertificatePath;
+      let ownershipPDFUrl = machine.ownershipDocumentPath;
+
+      // Subida de archivo operatividad
+      if (files.operativityCertificatePath?.[0]) {
+        await this.firebaseService.deleteFileFromUrl(
+          machine.operativityCertificatePath
+        );
+        operativityPDFUrl = await this.firebaseService.uploadBuffer(
+          files.operativityCertificatePath[0].buffer,
+          `${folder}/operatividad-certificado-${Date.now()}.pdf`,
+          files.operativityCertificatePath[0].mimetype
+        );
+      }
+
+      // Subida de archivo documento de propiedad
+      if (files.ownershipDocumentPath?.[0]) {
+        await this.firebaseService.deleteFileFromUrl(
+          machine.ownershipDocumentPath
+        );
+        ownershipPDFUrl = await this.firebaseService.uploadBuffer(
+          files.ownershipDocumentPath[0].buffer,
+          `${folder}/documento-propiedad-${Date.now()}.pdf`,
+          files.ownershipDocumentPath[0].mimetype
+        );
+      }
+
+      await this.platformsService.updateMachine(
+        machineSerial,
+        dto,
+        operativityPDFUrl,
+        ownershipPDFUrl
+      );
+    } catch (error) {
+      handleServiceError(error, "Error al actualizar la maquinaria");
+    }
+  }
+
+  async hasMachineChanges(
+    current: {
+      brand: string;
+      model: string;
+      typePlatform: PlatformType;
+      price: number;
+      status: PlatformStatus;
+      description: string | null;
+    },
+    incoming: UpdateMachineDto
+  ): Promise<boolean> {
+    const normalize = (val: string | null | undefined) => val?.trim() ?? null;
+
+    return (
+      (incoming.brand !== undefined &&
+        normalize(incoming.brand) !== normalize(current.brand)) ||
+      (incoming.model !== undefined &&
+        normalize(incoming.model) !== normalize(current.model)) ||
+      (incoming.typePlatform !== undefined &&
+        incoming.typePlatform !== current.typePlatform) ||
+      (incoming.price !== undefined && incoming.price !== current.price) ||
+      (incoming.status !== undefined && incoming.status !== current.status) ||
+      (incoming.description !== undefined &&
+        normalize(incoming.description) !== normalize(current.description))
+    );
+  }
+
+  async getMachineBySerial(machineSerial: string): Promise<MachineResponseDto> {
+    try {
+      const machine = await this.platformsService.getBySerial(machineSerial);
+
+      if (!machine) throwNotFound("Maquinaria no encontrada");
+
+      const machineInfo = {
+        brand: machine.brand,
+        model: machine.model,
+        typePlatform: machine.typePlatform as PlatformType,
+        price: machine.price,
+        status: machine.status as PlatformStatus,
+        description: machine.description,
+        operativityCertificatePath: machine.operativityCertificatePath,
+        ownershipDocumentPath: machine.ownershipDocumentPath,
+      };
+
+      return machineInfo;
+    } catch (error) {
+      handleServiceError(error, "Error al obtener la maquinaria por serial");
+    }
+  }
+
+  async getAllMachinesPaginated(
+    page: number,
+    pageSize: number
+  ): Promise<{
+    machines: MachineResponseDto[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    try {
+      const { platforms, total } =
+        await this.platformsService.getAllMachinesPaginated(page, pageSize);
+
+      const machines = platforms.map((machine) => ({
+        brand: machine.brand,
+        model: machine.model,
+        typePlatform: machine.typePlatform as PlatformType,
+        price: machine.price,
+        status: machine.status as PlatformStatus,
+        description: machine.description,
+        operativityCertificatePath: machine.operativityCertificatePath,
+        ownershipDocumentPath: machine.ownershipDocumentPath,
+      }));
+
+      return {
+        machines,
+        total,
+        page,
+        pageSize,
+      };
+    } catch (error) {
+      handleServiceError(error, "Error al obtener la maquinaria paginada");
+    }
+  }
+
+  async deleteMachine(machineSerial: string) {
+    try {
+      const machine = await this.platformsService.getBySerial(machineSerial);
+
+      if (!machine) throwNotFound("Maquinaria no encontrada");
+
+      await this.firebaseService.deleteFileFromUrl(
+        machine.operativityCertificatePath
+      );
+      await this.firebaseService.deleteFileFromUrl(
+        machine.ownershipDocumentPath
+      );
+
+      await this.platformsService.deleteMachine(machineSerial);
+    } catch (error) {
+      handleServiceError(error, "Error al eliminar la maquinaria");
+    }
   }
 }

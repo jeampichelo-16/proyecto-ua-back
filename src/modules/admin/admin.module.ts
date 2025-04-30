@@ -6,10 +6,19 @@ import { ConfigModule } from "@nestjs/config";
 import { MailModule } from "../mail/mail.module";
 import { OperatorsModule } from "../operators/operators.module";
 import { FirebaseModule } from "../firebase/firebase.module";
+import { PlatformsModule } from "../platforms/platforms.module";
+import { ClientsModule } from "../clients/clients.module";
 
 @Module({
   controllers: [AdminController],
   providers: [AdminService],
-  imports: [UsersModule, ConfigModule, MailModule, OperatorsModule, FirebaseModule],
+  imports: [
+    UsersModule,
+    ConfigModule,
+    MailModule,
+    OperatorsModule,
+    FirebaseModule,
+    PlatformsModule,
+  ],
 })
 export class AdminModule {}
