@@ -40,6 +40,8 @@ enum PlatformType {
 
 enum PlatformStatus {
   ACTIVO
+  EN_TRABAJO
+  EN_COTIZACION
   EN_MANTENIMIENTO
   INACTIVO
 }
@@ -95,25 +97,27 @@ model Client {
 }
 
 model Quotation {
-  id            Int             @id @default(autoincrement())
-  clientId      Int
-  platformId    Int             @unique
-  operatorId    Int // 🔥 SIN @unique aquí
-  description   String
-  amount        Float
-  subtotal      Float
-  igv           Float
-  total         Float
-  typeCurrency  String
-  status        QuotationStatus @default(PENDIENTE)
-  days          Int
-  quotationPath String
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id             Int             @id @default(autoincrement())
+  clientId       Int
+  platformId     Int
+  operatorId     Int? // 🔥 SIN @unique aquí
+  description    String
+  amount         Float
+  deliveryAmount Float?
+  subtotal       Float
+  igv            Float
+  total          Float
+  typeCurrency   String
+  isNeedOperator Boolean
+  status         QuotationStatus @default(PENDIENTE)
+  days           Int
+  quotationPath  String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  client   Client   @relation(fields: [clientId], references: [id])
-  platform Platform @relation("PlatformQuotation", fields: [platformId], references: [id])
-  operator Operator @relation(fields: [operatorId], references: [id]) // 🔥 Correcto ahora
+  client   Client    @relation(fields: [clientId], references: [id])
+  platform Platform  @relation(fields: [platformId], references: [id])
+  operator Operator? @relation(fields: [operatorId], references: [id]) // 🔥 Correcto ahora
 }
 
 model Platform {
@@ -132,5 +136,5 @@ model Platform {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  quotation Quotation? @relation("PlatformQuotation")
+  quotations Quotation[] @relation // ✅ plural y tipo array
 }

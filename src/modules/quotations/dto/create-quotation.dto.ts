@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNumber, IsString, IsPositive } from "class-validator";
+import { IsNumber, IsString, IsPositive, IsBoolean } from "class-validator";
 
 export class CreateQuotationDto {
   @IsNumber()
@@ -7,8 +7,8 @@ export class CreateQuotationDto {
   clientId: number;
 
   @IsNumber()
-  @ApiProperty({ description: "ID del operador" })
-  operatorId: number;
+  @ApiProperty({ description: "ID de la plataforma" })
+  platformId: number;
 
   @IsString()
   @ApiProperty({ description: "Descripción de la cotización" })
@@ -18,4 +18,8 @@ export class CreateQuotationDto {
   @IsPositive()
   @ApiProperty({ description: "Días de cotización" })
   days: number;
+
+  @IsBoolean()
+  @ApiProperty({ description: "¿Se requiere un operario?" })
+  isNeedOperator: boolean;
 }

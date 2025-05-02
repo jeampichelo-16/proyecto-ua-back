@@ -25,7 +25,6 @@ import { UpdateMachineDto } from "../platforms/dto/update-machine.dto";
 import { PlatformStatus } from "src/common/enum/platform-status.enum";
 import { PlatformType } from "src/common/enum/platform-type.enum";
 import { MachineResponseDto } from "../platforms/dto/machine-response.dto";
-import { ClientsService } from "../clients/clients.service";
 
 @Injectable()
 export class AdminService {
@@ -34,7 +33,7 @@ export class AdminService {
     private readonly mailService: MailService,
     private readonly operatorService: OperatorsService,
     private readonly firebaseService: FirebaseService,
-    private readonly platformsService: PlatformsService,
+    private readonly platformsService: PlatformsService
   ) {}
 
   async getClientsSummary() {
@@ -322,8 +321,9 @@ export class AdminService {
         pageSize
       );
 
-      const users = data.map((user) => ({
+      const users = data.map((user: any) => ({
         id: user.id,
+        idOperator: user.operario?.[0]?.id ?? null,
         email: user.email,
         username: user.username,
         firstName: user.firstName,
@@ -459,6 +459,10 @@ export class AdminService {
 
       if (!machine) throwNotFound("Maquinaria no encontrada");
 
+      if (machine.status == PlatformStatus.EN_COTIZACION) {
+        throwBadRequest("No se puede actualizar una maquinaria en cotización");
+      }
+
       const incomingDto: UpdateMachineDto = {
         ...dto,
         typePlatform: dto.typePlatform?.toUpperCase() as PlatformType,
@@ -560,6 +564,7 @@ export class AdminService {
       if (!machine) throwNotFound("Maquinaria no encontrada");
 
       const machineInfo = {
+        serial: machine.serial,
         brand: machine.brand,
         model: machine.model,
         typePlatform: machine.typePlatform as PlatformType,
@@ -590,6 +595,7 @@ export class AdminService {
         await this.platformsService.getAllMachinesPaginated(page, pageSize);
 
       const machines = platforms.map((machine) => ({
+        serial: machine.serial,
         brand: machine.brand,
         model: machine.model,
         typePlatform: machine.typePlatform as PlatformType,

@@ -1,17 +1,16 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateQuotationDto } from "./dto/create-quotation.dto";
-import {
-  throwBadRequest,
-  throwConflict,
-  throwNotFound,
-} from "src/common/utils/errors";
+import { throwBadRequest, throwNotFound } from "src/common/utils/errors";
 import { QuotationStatus } from "src/common/enum/quotation-status.enum";
 import { handleServiceError } from "src/common/utils/handle-error.util";
-import { Platform } from "@prisma/client";
 import { PdfService } from "../pdf/pdf.service";
 import { MailService } from "../mail/mail.service";
 import { FirebaseService } from "../firebase/firebase.service";
+import { PlatformStatus } from "src/common/enum/platform-status.enum";
+import { Operator, Quotation } from "@prisma/client";
+import { UpdateQuotationDto } from "./dto/update-quotation-delivery.dto";
+import { OperatorStatus } from "src/common/enum/operator-status.enum";
 
 @Injectable()
 export class QuotationsService {
@@ -58,6 +57,22 @@ export class QuotationsService {
     }
   }
 
+  async findByIdQuotation(id: number): Promise<Quotation | null> {
+    try {
+      const quotation = await this.prisma.quotation.findUnique({
+        where: { id },
+      });
+
+      if (!quotation) {
+        throwNotFound("Cotización no encontrada");
+      }
+
+      return quotation;
+    } catch (error) {
+      handleServiceError(error, "Error al buscar la cotización por ID");
+    }
+  }
+
   private async generateUniqueFirebaseFilename({
     prefix,
     entityId,
@@ -72,7 +87,7 @@ export class QuotationsService {
   }
 
   async createQuotation(dto: CreateQuotationDto): Promise<void> {
-    const { clientId, operatorId, days, description } = dto;
+    const { clientId, platformId, days, description, isNeedOperator } = dto;
 
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -83,60 +98,48 @@ export class QuotationsService {
         }
 
         // 2. Obtener plataforma libre y bloquear la ejecución
-        const [randomPlatform] = await tx.$queryRaw<Platform[]>`
-          SELECT * FROM "Platform"
-          WHERE "status" = 'ACTIVO'
-          AND "id" NOT IN (SELECT "platformId" FROM "Quotation")
-          ORDER BY RANDOM()
-          LIMIT 1
-        `;
-
-        if (!randomPlatform) {
-          throwNotFound(
-            "No hay plataformas activas disponibles sin cotización"
-          );
-        }
-
-        const platformId = randomPlatform.id;
-
-        // 3. Verificar si alguien ya la usó (dentro de la transacción!)
-        const alreadyUsed = await tx.quotation.findUnique({
-          where: { platformId },
+        const platform = await tx.platform.findUnique({
+          where: { id: platformId },
         });
-        if (alreadyUsed) {
-          throwConflict("La plataforma ya fue asignada en otra cotización");
+
+        if (!platform || platform.status !== PlatformStatus.ACTIVO) {
+          throwBadRequest("La plataforma no está activa o no existe");
         }
 
-        // 4. Validar operario
-        const operator = await tx.operator.findUnique({
-          where: { id: operatorId },
+        // 🔒 3. Validar si ya tiene cotización activa
+        const existing = await tx.quotation.findFirst({
+          where: {
+            platformId,
+            status: {
+              in: [QuotationStatus.PENDIENTE],
+            },
+          },
         });
-        if (!operator || operator.operatorStatus !== "ACTIVO") {
-          throwBadRequest("El operario no está activo o no existe");
+        if (existing) {
+          throwBadRequest("Esta plataforma ya tiene una cotización pendiente.");
         }
 
-        // 5. Validar horómetro
-        const horometerRequired = days * 8;
-        if (horometerRequired > randomPlatform.horometerMaintenance) {
+        const requiredHours = days * 8;
+        if (requiredHours > platform.horometerMaintenance) {
           throwBadRequest(
-            `El horómetro requerido (${horometerRequired}h) excede el límite (${randomPlatform.horometerMaintenance}h)`
+            `El horómetro requerido (${requiredHours}h) excede el límite de mantenimiento (${platform.horometerMaintenance}h)`
           );
         }
 
         // 6. Calcular montos
-        const amount = randomPlatform.price;
+        const amount = platform.price;
         const subtotal = amount * days;
         const igv = subtotal * 0.18;
         const total = subtotal + igv;
 
         // 7. Crear cotización
-        const quotation = await tx.quotation.create({
+        await tx.quotation.create({
           data: {
             clientId,
             platformId,
-            operatorId,
             description,
             days,
+            isNeedOperator,
             typeCurrency: "S/",
             amount,
             subtotal,
@@ -147,31 +150,11 @@ export class QuotationsService {
           },
         });
 
-        // 8. Generar PDF
-
-        const pdfBuffer = await this.pdfService.generateQuotationPdf(
-          quotation,
-          client,
-          operator,
-          randomPlatform
-        );
-
-        const generateNameFolder = await this.generateUniqueFirebaseFilename({
-          prefix: "quotations",
-          entityId: quotation.id,
-        });
-
-        // 9. Guardar PDF en Firebase
-        const folderPath = await this.firebaseService.uploadBuffer(
-          pdfBuffer,
-          generateNameFolder,
-          "application/pdf"
-        );
-
-        // 10. Actualizar cotización con la ruta del PDF
-        await tx.quotation.update({
-          where: { id: quotation.id },
-          data: { quotationPath: folderPath },
+        await tx.platform.update({
+          where: { id: platformId },
+          data: {
+            status: PlatformStatus.EN_COTIZACION,
+          },
         });
       });
     } catch (error) {
@@ -179,6 +162,144 @@ export class QuotationsService {
         error,
         "Error al registrar la cotización (transacción)"
       );
+    }
+  }
+
+  async updateQuotation(
+    quotationId: number,
+    dto: UpdateQuotationDto,
+    days: number,
+    platformId: number
+  ): Promise<void> {
+    try {
+      const { deliveryAmount, operatorId } = dto;
+      const hours = days * 8;
+
+      const quotation = await this.prisma.quotation.findUnique({
+        where: { id: quotationId },
+        select: {
+          subtotal: true,
+          isNeedOperator: true,
+        },
+      });
+
+      if (!quotation) throwNotFound("Cotización no encontrada");
+
+      const dailyOperatorCost = 200;
+      const operatorCost = quotation.isNeedOperator
+        ? dailyOperatorCost * days
+        : 0;
+
+      const updatedSubtotal =
+        quotation.subtotal + (deliveryAmount ?? 0) + operatorCost;
+      const igv = updatedSubtotal * 0.18;
+      const total = updatedSubtotal + igv;
+
+      // ✅ Actualizar la cotización
+      await this.prisma.quotation.update({
+        where: { id: quotationId },
+        data: {
+          deliveryAmount,
+          operatorId: quotation.isNeedOperator ? operatorId : null,
+          status: QuotationStatus.APROBADO,
+          subtotal: updatedSubtotal,
+          igv,
+          total,
+        },
+      });
+
+      await this.prisma.platform.update({
+        where: { id: platformId },
+        data: {
+          horometerMaintenance: {
+            decrement: hours,
+          },
+          status: PlatformStatus.EN_TRABAJO,
+        },
+      });
+
+      if (quotation.isNeedOperator && operatorId) {
+        await this.prisma.operator.update({
+          where: { id: operatorId },
+          data: {
+            operatorStatus: OperatorStatus.EN_TRABAJO,
+          },
+        });
+      }
+
+      // 📌 Cargar los datos completos para el PDF
+      const fullQuotation = await this.prisma.quotation.findUnique({
+        where: { id: quotationId },
+        include: {
+          client: true,
+          platform: true,
+          operator: true,
+        },
+      });
+
+      if (!fullQuotation) throwNotFound("Cotización no encontrada");
+
+      const pdfBuffer = await this.pdfService.generateQuotationPdf(
+        fullQuotation,
+        fullQuotation.client,
+        dailyOperatorCost,
+        fullQuotation.platform,
+        updatedSubtotal,
+        deliveryAmount ?? 0,
+        quotation.isNeedOperator
+      );
+
+      const generateNameFolder = await this.generateUniqueFirebaseFilename({
+        prefix: "quotations",
+        entityId: quotationId,
+      });
+
+      const folderPath = await this.firebaseService.uploadBuffer(
+        pdfBuffer,
+        generateNameFolder,
+        "application/pdf"
+      );
+
+      await this.prisma.quotation.update({
+        where: { id: quotationId },
+        data: {
+          quotationPath: folderPath,
+        },
+      });
+    } catch (error) {
+      handleServiceError(error, "Error al guardar cambios en la cotización");
+    }
+  }
+
+  async cancelQuotation(quotationId: number): Promise<void> {
+    try {
+      const quotation = await this.prisma.quotation.findUnique({
+        where: { id: quotationId },
+      });
+
+      if (!quotation) {
+        throwNotFound("Cotización no encontrada");
+      }
+
+      if (quotation.status !== QuotationStatus.PENDIENTE) {
+        throwBadRequest(
+          "No se puede cancelar una cotización que no está pendiente"
+        );
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.quotation.update({
+          where: { id: quotationId },
+          data: { status: QuotationStatus.RECHAZADO },
+        });
+
+        await tx.platform.update({
+          where: { id: quotation.platformId },
+          data: { status: PlatformStatus.ACTIVO },
+        });
+      });
+    } catch (error) {
+      handleServiceError(error, "Error al cancelar la cotización");
     }
   }
 }

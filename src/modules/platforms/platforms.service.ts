@@ -5,6 +5,7 @@ import { CreateMachineDto } from "./dto/create-platform.dto";
 import { UpdateMachineDto } from "./dto/update-machine.dto";
 import { throwNotFound } from "src/common/utils/errors";
 import { Prisma } from "@prisma/client";
+import { PlatformStatus } from "src/common/enum/platform-status.enum";
 
 @Injectable()
 export class PlatformsService {
@@ -52,6 +53,7 @@ export class PlatformsService {
       const platform = await this.prisma.platform.findUnique({
         where: { serial: machineSerial },
       });
+
       if (!platform) throwNotFound("Plataforma no encontrada.");
 
       const platformUpdates: Prisma.PlatformUpdateInput = {};
@@ -116,6 +118,12 @@ export class PlatformsService {
 
       // 🧠 Validación final
       if (Object.keys(platformUpdates).length === 0) return;
+
+      // ⚠️ Si se va a mantenimiento, reiniciar horómetro
+      if (updateMachineDto.status === PlatformStatus.EN_MANTENIMIENTO) {
+        platformUpdates.horometerMaintenance = 200;
+        platformUpdates.status = PlatformStatus.EN_MANTENIMIENTO;
+      }
 
       await this.prisma.platform.update({
         where: { serial: machineSerial },

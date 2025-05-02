@@ -31,6 +31,7 @@ import { PaginationQueryDto } from "src/common/dto/pagination-query.dto";
 import { CreateClientDto } from "../clients/dto/create-client.dto";
 import { UpdateClientDto } from "../clients/dto/update-client.dto";
 import { CreateQuotationDto } from "../quotations/dto/create-quotation.dto";
+import { UpdateQuotationDto } from "../quotations/dto/update-quotation-delivery.dto";
 
 @ApiTags("users")
 @Controller("users")
@@ -135,20 +136,62 @@ export class UsersController {
   }
 
   //crear cotizacion
-  @Post('quotations')
+  @Post("quotations")
   @HttpCode(201)
-  @ApiOperation({ summary: 'Registrar una cotización' })
+  @ApiOperation({ summary: "Registrar una cotización" })
   @ApiResponse({ status: 201, type: MessageResponseDto })
   @ApiResponse({ status: 400, type: ErrorResponseDto })
   async createQuotation(
-    @Body() dto: CreateQuotationDto,
+    @Body() dto: CreateQuotationDto
   ): Promise<MessageResponseDto> {
     await this.usersService.createQuotation(dto);
 
     return {
-      message: 'Cotización registrada correctamente',
+      message: "Cotización registrada correctamente",
       statusCode: 201,
       success: true,
     };
   }
+
+  //activar cotizacion
+  @Patch("quotations/:id/activate")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Activar una cotización" })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, type: ErrorResponseDto })
+  async activateQuotation(
+    @Param("id") id: number,
+    @Body() dto: UpdateQuotationDto
+  ): Promise<MessageResponseDto> {
+    await this.usersService.activateQuotation( id, dto);
+
+    return {
+      message: "Cotización activada correctamente",
+      statusCode: 200,
+      success: true,
+    };
+  }
+
+  //cancelar cotizacion
+  @Patch("quotations/:id/cancel")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Cancelar una cotización" })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, type: ErrorResponseDto })
+  async cancelQuotation(
+    @Param("id") id: number
+  ): Promise<MessageResponseDto> {
+    await this.usersService.cancelQuotation(id);
+
+    return {
+      message: "Cotización cancelada correctamente",
+      statusCode: 200,
+      success: true,
+    };
+  }
+
+  //listar cotizaciones activas paginadas 
+  
+
+  //lisar cotizaciones paginadas
 }

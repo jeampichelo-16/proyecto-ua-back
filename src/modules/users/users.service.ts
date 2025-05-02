@@ -20,6 +20,9 @@ import { CreateClientDto } from "../clients/dto/create-client.dto";
 import { UpdateClientDto } from "../clients/dto/update-client.dto";
 import { CreateQuotationDto } from "../quotations/dto/create-quotation.dto";
 import { QuotationsService } from "../quotations/quotations.service";
+import { UpdateQuotationDto } from "../quotations/dto/update-quotation-delivery.dto";
+import { QuotationStatus } from "src/common/enum/quotation-status.enum";
+import { OperatorStatus } from "src/common/enum/operator-status.enum";
 
 @Injectable()
 export class UsersService {
@@ -165,13 +168,14 @@ export class UsersService {
   //ADMIN - OBTENER EMPLEADOS PAGINADOS / OBTENER OPERARIOS PAGINADOS
   async findUsersByRolesPaginated(
     roles: Role[],
-    page,
-    pageSize
+    page: number,
+    pageSize: number
   ): Promise<{ data: User[]; total: number; page: number; pageSize: number }> {
     try {
       const skip = (page - 1) * pageSize;
 
       const [data, total] = await this.prisma.$transaction([
+        //obtener los datos del model operario en base al id del usuario
         this.prisma.user.findMany({
           where: {
             role: {
@@ -183,7 +187,15 @@ export class UsersService {
           orderBy: {
             createdAt: "desc",
           },
+          include: {
+            operario: {
+              select: {
+                id: true,
+              },
+            },
+          },
         }),
+
         this.prisma.user.count({
           where: {
             role: {
@@ -528,6 +540,74 @@ export class UsersService {
       await this.quotationsService.createQuotation(dto);
     } catch (error) {
       handleServiceError(error, "Error al registrar la cotización");
+    }
+  }
+
+  //QUOTATIONS - ACTIVAR COTIZACION
+  async activateQuotation(
+    quotationId: number,
+    dto: UpdateQuotationDto
+  ): Promise<void> {
+    try {
+      const quotation = await this.quotationsService.findByIdQuotation(
+        quotationId
+      );
+
+      if (!quotation) throwNotFound("Cotización no encontrada");
+
+      if (quotation.status !== QuotationStatus.PENDIENTE) {
+        throwBadRequest(
+          "Solo se puede modificar cotizaciones en estado PENDIENTE"
+        );
+      }
+
+      // 🔍 Validación condicional
+      if (quotation.isNeedOperator) {
+        if (!dto.operatorId) {
+          throwBadRequest(
+            "El ID del operador es obligatorio para esta cotización"
+          );
+        }
+
+        const operator = await this.prisma.operator.findUnique({
+          where: { id: dto.operatorId },
+        });
+
+        if (!operator || operator.operatorStatus !== OperatorStatus.ACTIVO) {
+          throwBadRequest("El operador no existe o no está activo");
+        }
+      }
+
+      // 🧠 Delegar el cambio de estado, asignación de operador y descuento de horómetro
+      await this.quotationsService.updateQuotation(
+        quotationId,
+        dto,
+        quotation.days,
+        quotation.platformId
+      );
+    } catch (error) {
+      handleServiceError(error, "Error al actualizar datos de la cotización");
+    }
+  }
+
+  //QUOTATIONS - CANCELAR COTIZACION
+  async cancelQuotation(quotationId: number): Promise<void> {
+    try {
+      const quotation = await this.quotationsService.findByIdQuotation(
+        quotationId
+      );
+
+      if (!quotation) throwNotFound("Cotización no encontrada");
+
+      if (quotation.status !== QuotationStatus.PENDIENTE) {
+        throwBadRequest(
+          "Solo se puede cancelar cotizaciones en estado PENDIENTE"
+        );
+      }
+
+      await this.quotationsService.cancelQuotation(quotationId);
+    } catch (error) {
+      handleServiceError(error, "Error al cancelar la cotización");
     }
   }
 

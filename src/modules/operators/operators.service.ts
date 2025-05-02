@@ -121,4 +121,5 @@ export class OperatorsService {
       handleServiceError(error, "Error al eliminar el operario");
     }
   }
+
 }
