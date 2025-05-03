@@ -25,6 +25,8 @@ import { UpdateMachineDto } from "../platforms/dto/update-machine.dto";
 import { PlatformStatus } from "src/common/enum/platform-status.enum";
 import { PlatformType } from "src/common/enum/platform-type.enum";
 import { MachineResponseDto } from "../platforms/dto/machine-response.dto";
+import { ActiveOperatorResponseDto } from "../operators/dto/active-operator-response.dto";
+import { ActiveMachineResponseDto } from "../platforms/dto/active-machine-response.dto";
 
 @Injectable()
 export class AdminService {
@@ -387,6 +389,18 @@ export class AdminService {
     await this.operatorService.deleteOperator(operatorId);
   }
 
+  async getAllActiveOperators(): Promise<ActiveOperatorResponseDto[]> {
+    const operators = await this.operatorService.getAllActiveOperators();
+
+    return operators.map((op) => ({
+      id: op.id,
+      userId: op.userId,
+      firstName: op.user.firstName,
+      lastName: op.user.lastName,
+      dni: op.user.dni,
+    }));
+  }
+
   //PLATAFORMAS - MAQUINARIA
   async createMachineWithFiles(
     dto: CreateMachineDto,
@@ -634,5 +648,18 @@ export class AdminService {
     } catch (error) {
       handleServiceError(error, "Error al eliminar la maquinaria");
     }
+  }
+
+  async getAllActiveMachines(): Promise<ActiveMachineResponseDto[]> {
+    const platforms = await this.platformsService.getAllActiveMachines();
+
+    return platforms.map((platform) => ({
+      id: platform.id,
+      serial: platform.serial,
+      brand: platform.brand,
+      model: platform.model,
+      typePlatform: platform.typePlatform,
+      price: platform.price,
+    }));
   }
 }

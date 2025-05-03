@@ -265,6 +265,23 @@ export class AdminController {
     };
   }
 
+  @Get("active-operators")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Listar todos los operarios activos",
+  })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 401, type: ErrorResponseDto })
+  async getAllActiveOperators(): Promise<MessageResponseDto> {
+    const operatorsPaginated = await this.adminService.getAllActiveOperators();
+    return {
+      message: "Lista de operarios activos obtenida correctamente",
+      statusCode: 200,
+      success: true,
+      data: operatorsPaginated,
+    };
+  }
+
   //maquinarias
   @Post("machines")
   @HttpCode(201)
@@ -385,4 +402,20 @@ export class AdminController {
     };
   }
 
+  @Get("active-machines")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Listar todas las maquinarias activas",
+  })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 401, type: ErrorResponseDto })
+  async getAllActiveMachines(): Promise<MessageResponseDto> {
+    const machinesPaginated = await this.adminService.getAllActiveMachines();
+    return {
+      message: "Lista de maquinarias activas obtenida correctamente",
+      statusCode: 200,
+      success: true,
+      data: machinesPaginated,
+    };
+  }
 }

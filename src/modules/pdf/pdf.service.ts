@@ -128,7 +128,7 @@ export class PdfService {
 
     // Totales
     y += rowHeight + 10;
-    doc.font("Helvetica-Bold");
+    doc.font("Helvetica");
     doc
       .text("Envío", rightX, y)
       .text(`S/ ${deliveryAmount.toFixed(2)}`, rightX + 80, y, {

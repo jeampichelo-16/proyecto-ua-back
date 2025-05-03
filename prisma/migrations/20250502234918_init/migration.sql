@@ -50,31 +50,35 @@ CREATE TABLE "Quotation" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "clientId" INTEGER NOT NULL,
     "platformId" INTEGER NOT NULL,
-    "operatorId" INTEGER NOT NULL,
+    "operatorId" INTEGER,
     "description" TEXT NOT NULL,
     "amount" REAL NOT NULL,
+    "deliveryAmount" REAL,
     "subtotal" REAL NOT NULL,
     "igv" REAL NOT NULL,
     "total" REAL NOT NULL,
     "typeCurrency" TEXT NOT NULL,
+    "isNeedOperator" BOOLEAN NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'PENDIENTE',
     "days" INTEGER NOT NULL,
+    "quotationPath" TEXT NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "Quotation_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "Quotation_platformId_fkey" FOREIGN KEY ("platformId") REFERENCES "Platform" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "Quotation_operatorId_fkey" FOREIGN KEY ("operatorId") REFERENCES "Operator" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "Quotation_operatorId_fkey" FOREIGN KEY ("operatorId") REFERENCES "Operator" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "Platform" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "serial" TEXT NOT NULL,
     "brand" TEXT NOT NULL,
     "model" TEXT NOT NULL,
     "typePlatform" TEXT NOT NULL DEFAULT 'ELECTRICO',
     "price" REAL NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'ACTIVO',
-    "horometerMaintenance" INTEGER NOT NULL,
+    "horometerMaintenance" INTEGER NOT NULL DEFAULT 200,
     "description" TEXT,
     "operativityCertificatePath" TEXT NOT NULL,
     "ownershipDocumentPath" TEXT NOT NULL,
@@ -98,4 +102,4 @@ CREATE UNIQUE INDEX "Client_email_key" ON "Client"("email");
 CREATE UNIQUE INDEX "Client_ruc_key" ON "Client"("ruc");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Quotation_platformId_key" ON "Quotation"("platformId");
+CREATE UNIQUE INDEX "Platform_serial_key" ON "Platform"("serial");

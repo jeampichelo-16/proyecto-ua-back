@@ -12,6 +12,7 @@
     "build": "nest build && npm run copy:templates && npm run copy:firebase && npm run copy:assets",
     "start": "npm run build && node dist/src/main.js",
     "seed": "ts-node prisma/seed.ts",
+    "seed:fake": "ts-node prisma/seedFake.ts",
     "start:dev": "nest start --watch",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start:debug": "nest start --debug --watch",
@@ -24,6 +25,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@faker-js/faker": "^9.7.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",

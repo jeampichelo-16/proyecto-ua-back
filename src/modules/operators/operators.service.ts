@@ -6,7 +6,8 @@ import { handleServiceError } from "src/common/utils/handle-error.util";
 import { UsersService } from "../users/users.service";
 import { UpdateOperatorDto } from "./dto/update-operator.dto";
 import { throwNotFound } from "src/common/utils/errors";
-import { Prisma } from "@prisma/client";
+import { Operator, Prisma } from "@prisma/client";
+import { OperatorStatus } from "src/common/enum/operator-status.enum";
 
 @Injectable()
 export class OperatorsService {
@@ -122,4 +123,15 @@ export class OperatorsService {
     }
   }
 
+  //ADMIN - OBTENER OPERARIOS ACTIVOS
+  async getAllActiveOperators() {
+    return this.prisma.operator.findMany({
+      where: {
+        operatorStatus: OperatorStatus.ACTIVO,
+      },
+      include: {
+        user: true, // 👈 Para poder acceder a user.firstName, dni, etc.
+      },
+    });
+  }
 }

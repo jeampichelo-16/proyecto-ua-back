@@ -1,10 +1,10 @@
-import * as Joi from 'joi';
+import * as Joi from "joi";
 
 export const validationSchema = Joi.object({
   // 🌐 Entorno
   NODE_ENV: Joi.string()
-    .valid('development', 'production', 'test')
-    .default('development'),
+    .valid("development", "production", "test")
+    .default("development"),
 
   // 🚪 Puerto
   PORT: Joi.number().default(3000),
@@ -15,12 +15,12 @@ export const validationSchema = Joi.object({
   // 🔐 JWT Auth
   JWT_ACCESS_SECRET: Joi.string().required(),
   JWT_REFRESH_SECRET: Joi.string().required(),
-  TIMEOUT_ACCESS_TOKEN: Joi.string().default('15m'),
-  TIMEOUT_REFRESH_TOKEN: Joi.string().default('7d'),
+  TIMEOUT_ACCESS_TOKEN: Joi.string().default("15m"),
+  TIMEOUT_REFRESH_TOKEN: Joi.string().default("7d"),
 
   // 📨 Verificación por correo
   JWT_VERIFICATION_SECRET_EMAIL: Joi.string().required(),
-  TIMEOUT_VERIFICATION_TOKEN_EMAIL: Joi.string().default('1d'),
+  TIMEOUT_VERIFICATION_TOKEN_EMAIL: Joi.string().default("1d"),
 
   // 📫 Correo
   MAIL_USER: Joi.string().email().required(),
@@ -43,4 +43,7 @@ export const validationSchema = Joi.object({
   EMPLOYEE_USERNAME: Joi.string().required(),
   EMPLOYEE_FIRST_NAME: Joi.string().required(),
   EMPLOYEE_LAST_NAME: Joi.string().required(),
+
+  //Firebase
+  FIREBASE_STORAGE_BUCKET: Joi.string().required(),
 });

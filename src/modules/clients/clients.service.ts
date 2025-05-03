@@ -184,4 +184,18 @@ export class ClientsService {
       handleServiceError(error, "Error al eliminar el cliente");
     }
   }
+
+  //LISTAR CLIENTES ACTIVOS SIN PAGINAR
+  async getAllActiveClients(): Promise<Client[]> {
+    try {
+      const clients = await this.prisma.client.findMany({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" }, // orden opcional
+      });
+
+      return clients;
+    } catch (error) {
+      handleServiceError(error, "Error al obtener los clientes activos");
+    }
+  }
 }

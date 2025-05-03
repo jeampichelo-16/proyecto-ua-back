@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Quotation, User } from "@prisma/client";
+import { Client, Operator, Platform, Quotation, User } from "@prisma/client";
 import { CreateUserDto, UserResponseDto } from "./dto";
 import { Role } from "src/common/enum/role.enum";
 import { PrismaService } from "src/modules/prisma/prisma.service";
@@ -23,6 +23,9 @@ import { QuotationsService } from "../quotations/quotations.service";
 import { UpdateQuotationDto } from "../quotations/dto/update-quotation-delivery.dto";
 import { QuotationStatus } from "src/common/enum/quotation-status.enum";
 import { OperatorStatus } from "src/common/enum/operator-status.enum";
+import { QuotationSummaryResponseDto } from "../quotations/dto/quotation-response.dto";
+import { QuotationDetailResponseDto } from "../quotations/dto/quotation-detail-response.dto";
+import { ActiveClientResponseDto } from "../clients/dto/client-active-response.dto";
 
 @Injectable()
 export class UsersService {
@@ -472,6 +475,26 @@ export class UsersService {
     }
   }
 
+  //USER - OBTENER CLIENTES ACTIVOS SIN PAGINAR
+  async getAllActiveClients(): Promise<ActiveClientResponseDto[]> {
+    try {
+      const clients = await this.clientsService.getAllActiveClients();
+
+      const activeClients: ActiveClientResponseDto[] = clients.map((client) => ({
+        id: client.id,
+        ruc: client.ruc ?? null,
+        companyName: client.companyName ?? null,
+      }));
+
+      return activeClients;
+    } catch (error) {
+      handleServiceError(
+        error,
+        "Error al obtener la lista de clientes activos"
+      );
+    }
+  }
+
   //USER - CREAR CLIENTE
   async createClient(dto: CreateClientDto) {
     try {
@@ -531,6 +554,84 @@ export class UsersService {
       await this.clientsService.deleteClient(clientId);
     } catch (error) {
       handleServiceError(error, "Error al eliminar el cliente");
+    }
+  }
+
+  //QUOTATIONS - OBTENER COTIZACIONES PAGINADAS
+  async getAllQuotationsPaginated(
+    page: number,
+    pageSize: number
+  ): Promise<{
+    quotations: QuotationSummaryResponseDto[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    try {
+      const { data, total } =
+        await this.quotationsService.getAllQuotationsPaginated(page, pageSize);
+
+      const quotations: QuotationSummaryResponseDto[] = data.map((q) => ({
+        id: q.id,
+        clientName: q.client.name,
+        platformSerial: q.platform.serial,
+        days: q.days,
+        total: q.total,
+        status: q.status,
+        createdAt: q.createdAt,
+      }));
+
+      return {
+        quotations,
+        total,
+        page,
+        pageSize,
+      };
+    } catch (error) {
+      handleServiceError(error, "Error al obtener las cotizaciones paginadas");
+    }
+  }
+
+  //QUOTATIONS - OBTENER COTIZACION POR ID
+  async getQuotationById(id: number): Promise<QuotationDetailResponseDto> {
+    try {
+      const quotation = await this.quotationsService.getQuotationById(id);
+
+      return {
+        id: quotation.id,
+        description: quotation.description,
+        amount: quotation.amount,
+        deliveryAmount: quotation.deliveryAmount,
+        subtotal: quotation.subtotal,
+        igv: quotation.igv,
+        total: quotation.total,
+        typeCurrency: quotation.typeCurrency,
+        isNeedOperator: quotation.isNeedOperator,
+        status: quotation.status,
+        days: quotation.days,
+        quotationPath: quotation.quotationPath,
+        createdAt: quotation.createdAt,
+        updatedAt: quotation.updatedAt,
+        client: {
+          id: quotation.client.id,
+          name: quotation.client.name,
+          email: quotation.client.email ?? "",
+        },
+        platform: {
+          id: quotation.platform.id,
+          serial: quotation.platform.serial,
+          brand: quotation.platform.brand,
+          model: quotation.platform.model,
+        },
+        operator: quotation.operator
+          ? {
+              id: quotation.operator.id,
+              userId: quotation.operator.userId,
+            }
+          : null,
+      };
+    } catch (error) {
+      handleServiceError(error, "Error al obtener la cotización por ID");
     }
   }
 

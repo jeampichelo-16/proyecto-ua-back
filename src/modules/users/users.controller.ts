@@ -89,6 +89,24 @@ export class UsersController {
     };
   }
 
+  //obtener clientes activos
+  @Get("active-clients")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Listar todos los clientes activos",
+  })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 401, type: ErrorResponseDto })
+  async getAllActiveClients(): Promise<MessageResponseDto> {
+    const clientsPaginated = await this.usersService.getAllActiveClients();
+    return {
+      message: "Lista de clientes activos obtenida correctamente",
+      statusCode: 200,
+      success: true,
+      data: clientsPaginated,
+    };
+  }
+
   @Patch("clients/:id")
   @HttpCode(200)
   @ApiOperation({ summary: "Actualizar un cliente" })
@@ -163,7 +181,7 @@ export class UsersController {
     @Param("id") id: number,
     @Body() dto: UpdateQuotationDto
   ): Promise<MessageResponseDto> {
-    await this.usersService.activateQuotation( id, dto);
+    await this.usersService.activateQuotation(id, dto);
 
     return {
       message: "Cotización activada correctamente",
@@ -178,9 +196,7 @@ export class UsersController {
   @ApiOperation({ summary: "Cancelar una cotización" })
   @ApiResponse({ status: 200, type: MessageResponseDto })
   @ApiResponse({ status: 400, type: ErrorResponseDto })
-  async cancelQuotation(
-    @Param("id") id: number
-  ): Promise<MessageResponseDto> {
+  async cancelQuotation(@Param("id") id: number): Promise<MessageResponseDto> {
     await this.usersService.cancelQuotation(id);
 
     return {
@@ -190,8 +206,42 @@ export class UsersController {
     };
   }
 
-  //listar cotizaciones activas paginadas 
-  
-
   //lisar cotizaciones paginadas
+  @Get("quotations")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Listar todas las cotizaciones paginadas",
+  })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 401, type: ErrorResponseDto })
+  async getAllQuotationsPaginated(
+    @Query() paginationQuery: PaginationQueryDto
+  ): Promise<MessageResponseDto> {
+    const quotationsPaginated =
+      await this.usersService.getAllQuotationsPaginated(
+        paginationQuery.page ?? 1,
+        paginationQuery.pageSize ?? 10
+      );
+    return {
+      message: "Lista de cotizaciones obtenida correctamente",
+      statusCode: 200,
+      success: true,
+      data: quotationsPaginated,
+    };
+  }
+
+  @Get("quotations/:id")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Obtener una cotización por ID" })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, type: ErrorResponseDto })
+  async getQuotationById(@Param("id") id: number): Promise<MessageResponseDto> {
+    const quotation = await this.usersService.getQuotationById(id);
+    return {
+      message: "Cotización obtenida correctamente",
+      statusCode: 200,
+      success: true,
+      data: quotation,
+    };
+  }
 }

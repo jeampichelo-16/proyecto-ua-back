@@ -8,7 +8,7 @@ import { PdfService } from "../pdf/pdf.service";
 import { MailService } from "../mail/mail.service";
 import { FirebaseService } from "../firebase/firebase.service";
 import { PlatformStatus } from "src/common/enum/platform-status.enum";
-import { Operator, Quotation } from "@prisma/client";
+import { Client, Operator, Platform, Quotation } from "@prisma/client";
 import { UpdateQuotationDto } from "./dto/update-quotation-delivery.dto";
 import { OperatorStatus } from "src/common/enum/operator-status.enum";
 
@@ -301,5 +301,59 @@ export class QuotationsService {
     } catch (error) {
       handleServiceError(error, "Error al cancelar la cotización");
     }
+  }
+
+  // quotations.service.ts
+  async getAllQuotationsPaginated(
+    page: number,
+    pageSize: number
+  ): Promise<{
+    data: (Quotation & {
+      client: Client;
+      platform: Platform;
+      operator: Operator | null;
+    })[];
+    total: number;
+  }> {
+    const skip = (page - 1) * pageSize;
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.quotation.findMany({
+        skip,
+        take: pageSize,
+        orderBy: { createdAt: "desc" },
+        include: {
+          client: true,
+          platform: true,
+          operator: true,
+        },
+      }),
+      this.prisma.quotation.count(),
+    ]);
+
+    return { data, total };
+  }
+
+  async getQuotationById(id: number): Promise<
+    Quotation & {
+      client: Client;
+      platform: Platform;
+      operator: Operator | null;
+    }
+  > {
+    const quotation = await this.prisma.quotation.findUnique({
+      where: { id },
+      include: {
+        client: true,
+        platform: true,
+        operator: true,
+      },
+    });
+
+    if (!quotation) {
+      throwNotFound("Cotización no encontrada");
+    }
+
+    return quotation;
   }
 }

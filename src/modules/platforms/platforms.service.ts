@@ -182,4 +182,16 @@ export class PlatformsService {
       handleServiceError(error, "Error al eliminar la plataforma.");
     }
   }
+
+  //OBTENER PLATAFORMAS ACTIVAS
+  async getAllActiveMachines() {
+    try {
+      return this.prisma.platform.findMany({
+        where: { status: PlatformStatus.ACTIVO },
+        orderBy: { createdAt: "desc" },
+      });
+    } catch (error) {
+      handleServiceError(error, "Error al obtener las plataformas activas.");
+    }
+  }
 }
