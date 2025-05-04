@@ -480,11 +480,13 @@ export class UsersService {
     try {
       const clients = await this.clientsService.getAllActiveClients();
 
-      const activeClients: ActiveClientResponseDto[] = clients.map((client) => ({
-        id: client.id,
-        ruc: client.ruc ?? null,
-        companyName: client.companyName ?? null,
-      }));
+      const activeClients: ActiveClientResponseDto[] = clients.map(
+        (client) => ({
+          id: client.id,
+          ruc: client.ruc ?? null,
+          companyName: client.companyName ?? null,
+        })
+      );
 
       return activeClients;
     } catch (error) {

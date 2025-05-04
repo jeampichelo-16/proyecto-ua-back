@@ -24,6 +24,8 @@ async function bootstrap() {
     prefix: "/uploads/",
   });
 
+  app.set("trust proxy", 1);
+
   app.enableCors({
     origin: "http://localhost:5173",
     credentials: true,
