@@ -358,14 +358,14 @@ export class AdminService {
     }
 
     const profileOperator = {
-      id: operator.id,
+      idOperator: operator.id,
       email: operator.user.email,
       username: operator.user.username,
       firstName: operator.user.firstName,
       lastName: operator.user.lastName,
       dni: operator.user.dni,
       phone: operator.user.phone,
-      isActive: operator.user.isActive,
+      operatorStatus: operator.operatorStatus as OperatorStatus,
       role: operator.user.role as Role,
       emoPDFPath: operator.emoPDFPath,
       operativityCertificatePath: operator.operativityCertificatePath,
