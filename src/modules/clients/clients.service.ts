@@ -130,7 +130,6 @@ export class ClientsService {
   async updateClient(id: number, dto: UpdateClientDto): Promise<Client | null> {
     try {
       const existingClient = await this.findById(id);
-
       if (!existingClient) {
         throwNotFound("No se encontró el cliente");
       }
@@ -140,7 +139,8 @@ export class ClientsService {
         (!dto.name || dto.name === existingClient.name) &&
         (!dto.email || dto.email === existingClient.email) &&
         (!dto.phone || dto.phone === existingClient.phone) &&
-        (!dto.ruc || dto.ruc === existingClient.ruc) &&
+        (!Object.prototype.hasOwnProperty.call(dto, "isActive") ||
+          dto.isActive === existingClient.isActive) &&
         (!dto.companyName || dto.companyName === existingClient.companyName) &&
         (!dto.address || dto.address === existingClient.address);
 
@@ -154,7 +154,7 @@ export class ClientsService {
           name: dto.name ?? existingClient.name,
           email: dto.email ?? existingClient.email,
           phone: dto.phone ?? existingClient.phone,
-          ruc: dto.ruc ?? existingClient.ruc,
+          isActive: dto.isActive ?? existingClient.isActive,
           companyName: dto.companyName ?? existingClient.companyName,
           address: dto.address ?? existingClient.address,
         },

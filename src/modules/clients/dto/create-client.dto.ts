@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsBoolean } from "class-validator";
 
 export class CreateClientDto {
   @IsString()
@@ -23,4 +23,8 @@ export class CreateClientDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean = true; // Valor por defecto
 }

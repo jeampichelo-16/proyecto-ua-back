@@ -325,7 +325,7 @@ export class AdminService {
 
       const users = data.map((user: any) => ({
         id: user.id,
-        idOperator: user.operario?.[0]?.id ?? null,
+        idOperator: user.operario?.[0]?.id,
         email: user.email,
         username: user.username,
         firstName: user.firstName,
@@ -333,6 +333,7 @@ export class AdminService {
         dni: user.dni,
         role: user.role as Role,
         phone: user.phone,
+        operatorStatus: user.operario?.[0]?.operatorStatus,
         isActive: user.isActive,
       }));
 

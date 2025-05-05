@@ -194,6 +194,7 @@ export class UsersService {
             operario: {
               select: {
                 id: true,
+                operatorStatus: true,
               },
             },
           },
@@ -252,7 +253,6 @@ export class UsersService {
       const lastName = dto.lastName ?? localPartOfEmail;
       const plainPassword = generateSecurePassword(12);
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
-
       const existingUser = await this.findByEmail(dto.email);
 
       const existingDni = await this.findByDni(dto.dni);
@@ -279,7 +279,10 @@ export class UsersService {
         },
       });
 
-      return employeeUser;
+      return {
+        ...employeeUser,
+        password: plainPassword, // Return the plain password for the email
+      };
     } catch (error) {
       handleServiceError(error, "Error al crear el usuario");
     }
