@@ -36,7 +36,7 @@ export class PdfService {
     // Logo y título
     doc.image("src/assets/logo.png", leftX, 40, { width: 60 });
     doc
-      .fontSize(18)
+      .fontSize(15)
       .fillColor("black")
       .text("COTIZACIÓN", rightX, 50, { align: "right" });
 
@@ -251,7 +251,7 @@ export class PdfService {
     doc.image("src/assets/medio_pago.png", imageX, y, { width: imageWidth });
 
     // Añade espacio antes del footer
-    y += 160;
+    y += 170;
 
     // Línea gris justo encima del texto
     doc
