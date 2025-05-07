@@ -1,6 +1,13 @@
 // src/modules/operators/dto/update-operator.dto.ts
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsEnum, IsOptional, IsString } from "class-validator";
+import { Type } from "class-transformer";
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+} from "class-validator";
 import { OperatorStatus } from "src/common/enum/operator-status.enum";
 
 export class UpdateOperatorDto {
@@ -23,4 +30,10 @@ export class UpdateOperatorDto {
   @IsOptional()
   @IsEnum(OperatorStatus)
   operatorStatus?: OperatorStatus;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  @Type(() => Number) // 👈 NECESARIO PARA form-data
+  costService?: number;
 }

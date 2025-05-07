@@ -25,8 +25,15 @@ import { UpdateMachineDto } from "../platforms/dto/update-machine.dto";
 import { PlatformStatus } from "src/common/enum/platform-status.enum";
 import { PlatformType } from "src/common/enum/platform-type.enum";
 import { MachineResponseDto } from "../platforms/dto/machine-response.dto";
-import { ActiveOperatorResponseDto } from "../operators/dto/active-operator-response.dto";
-import { ActiveMachineResponseDto } from "../platforms/dto/active-machine-response.dto";
+import {
+  DashboardSummaryDto,
+  QuotationRatePoint,
+  ResponseTimePoint,
+} from "./dto/dashboard-summary.dto";
+import { toZonedTime } from "date-fns-tz";
+import { subDays } from "date-fns";
+import { PrismaService } from "../prisma/prisma.service";
+import { QuotationStatus } from "src/common/enum/quotation-status.enum";
 
 @Injectable()
 export class AdminService {
@@ -35,11 +42,122 @@ export class AdminService {
     private readonly mailService: MailService,
     private readonly operatorService: OperatorsService,
     private readonly firebaseService: FirebaseService,
-    private readonly platformsService: PlatformsService
+    private readonly platformsService: PlatformsService,
+    private readonly prisma: PrismaService
   ) {}
 
   async getClientsSummary() {
-    return { message: "Bienvenido al panel de administración" };
+    /*
+    const TIMEZONE = "America/Lima";
+    const limaNow = toZonedTime(new Date(), TIMEZONE);
+    const startDate = subDays(limaNow, 30);
+
+    const [totalClients, totalQuotations, activeOperators, totalApproved] =
+      await Promise.all([
+        this.prisma.client.count(),
+        this.prisma.quotation.count(),
+        this.prisma.operator.count({ where: { operatorStatus: "ACTIVO" } }),
+        this.prisma.quotation.count({
+          where: { status: QuotationStatus.APROBADO },
+        }),
+      ]);
+
+    const quotations = await this.prisma.quotation.findMany({
+      where: { createdAt: { gte: startDate } },
+      select: {
+        createdAt: true,
+        updatedAt: true,
+        status: true,
+      },
+    });
+
+    const grouped = new Map<
+      string,
+      { total: number; processed: number; responseTimes: number[] }
+    >();
+
+    for (const q of quotations) {
+      const date = q.createdAt.toISOString().split("T")[0];
+      const record = grouped.get(date) ?? {
+        total: 0,
+        processed: 0,
+        responseTimes: [],
+      };
+
+      record.total += 1;
+
+      if (q.status !== QuotationStatus.PENDIENTE) {
+        record.processed += 1;
+        const diffHrs =
+          (q.updatedAt.getTime() - q.createdAt.getTime()) / (1000 * 60 * 60);
+        record.responseTimes.push(diffHrs);
+      }
+
+      grouped.set(date, record);
+    }
+
+    let rateSum = 0;
+    let rateCount = 0;
+    let responseSum = 0;
+    let responseCount = 0;
+
+    const quotationRateSeries: QuotationRatePoint[] = [];
+    const responseTimeSeries: ResponseTimePoint[] = [];
+
+    for (const [
+      date,
+      { total, processed, responseTimes },
+    ] of grouped.entries()) {
+      const rate = total > 0 ? (processed / total) * 100 : 0;
+      quotationRateSeries.push({
+        date,
+        total,
+        processed,
+        rate: +rate.toFixed(2),
+      });
+
+      rateSum += rate;
+      rateCount++;
+
+      const avgResponse = responseTimes.length
+        ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+        : 0;
+
+      responseTimeSeries.push({
+        date,
+        responseHours: +avgResponse.toFixed(2),
+      });
+
+      responseSum += avgResponse;
+      if (avgResponse > 0) responseCount++;
+    }
+
+    const quotationConversionRate =
+      totalQuotations > 0
+        ? +((totalApproved / totalQuotations) * 100).toFixed(2)
+        : 0;
+
+    const avgResponseTimeInHours =
+      responseCount > 0 ? +(responseSum / responseCount).toFixed(2) : 0;
+
+    const quotationRateAvg =
+      rateCount > 0 ? +(rateSum / rateCount).toFixed(2) : 0;
+
+    return {
+      totalClients,
+      totalQuotations,
+      activeOperators,
+      quotationRateAvg,
+      avgResponseTimeInHours,
+      quotationConversionRate, // ✅ Incluido en respuesta
+      quotationRateSeries: quotationRateSeries.sort((a, b) =>
+        a.date.localeCompare(b.date)
+      ),
+      responseTimeSeries: responseTimeSeries.sort((a, b) =>
+        a.date.localeCompare(b.date)
+      ),
+    };
+    */
   }
 
   //EMPLEADOS
@@ -162,6 +280,7 @@ export class AdminService {
   }
 
   //OPERADORES
+  //LISTO
   async createOperatorWithFiles(
     dto: CreateOperatorDto,
     files: {
@@ -210,6 +329,7 @@ export class AdminService {
     }
   }
 
+  //LISTO
   async updateOperatorWithFiles(
     operatorId: number,
     dto: UpdateOperatorDto,
@@ -233,6 +353,7 @@ export class AdminService {
           lastName: operator.user.lastName,
           phone: operator.user.phone,
           status: operator.operatorStatus as OperatorStatus,
+          costService: operator.costService,
         },
         incomingDto
       );
@@ -247,11 +368,11 @@ export class AdminService {
         );
       }
 
+      // 📦 Subir archivos si existen
       const folder = `operators/${operator.user.dni}`;
       let emoPDFUrl = operator.emoPDFPath;
       let operativityPDFUrl = operator.operativityCertificatePath;
 
-      // Subida de archivo EMO
       if (files.emoPDFPath?.[0]) {
         await this.firebaseService.deleteFileFromUrl(operator.emoPDFPath);
         emoPDFUrl = await this.firebaseService.uploadBuffer(
@@ -261,7 +382,6 @@ export class AdminService {
         );
       }
 
-      // Subida de archivo operatividad
       if (files.operativityCertificatePath?.[0]) {
         await this.firebaseService.deleteFileFromUrl(
           operator.operativityCertificatePath
@@ -273,22 +393,28 @@ export class AdminService {
         );
       }
 
-      await this.operatorService.updateOperator(
-        operatorId,
-        dto,
-        emoPDFUrl,
-        operativityPDFUrl
-      );
+      // 1️⃣ Actualiza datos del usuario
+      await this.usersService.updateOperatorUser(operator.userId, incomingDto);
+
+      // 2️⃣ Luego actualiza datos del operador
+      await this.operatorService.updateOperatorInfo(operatorId, {
+        operatorStatus: incomingDto.operatorStatus,
+        emoPDFPath: emoPDFUrl,
+        operativityCertificatePath: operativityPDFUrl,
+        costService: incomingDto.costService,
+      });
     } catch (error) {
       handleServiceError(error, "Error al actualizar el operario");
     }
   }
 
+  //LISTO
   async hasOperatorChanges(
     current: {
       firstName: string;
       lastName: string;
       phone: string | null;
+      costService: number;
       status: OperatorStatus;
     },
     incoming: UpdateOperatorDto
@@ -303,10 +429,13 @@ export class AdminService {
       (incoming.phone !== undefined &&
         normalize(incoming.phone) !== normalize(current.phone)) ||
       (incoming.operatorStatus !== undefined &&
-        incoming.operatorStatus !== current.status)
+        incoming.operatorStatus !== current.status) ||
+      (incoming.costService !== undefined &&
+        incoming.costService !== current.costService)
     );
   }
 
+  //LISTO
   async getAllOperatorsPaginated(
     page: number,
     pageSize: number
@@ -351,6 +480,7 @@ export class AdminService {
     }
   }
 
+  //LISTO
   async getOperatorById(operatorId: number) {
     const operator = await this.operatorService.getById(operatorId);
 
@@ -364,6 +494,7 @@ export class AdminService {
       username: operator.user.username,
       firstName: operator.user.firstName,
       lastName: operator.user.lastName,
+      costService: operator.costService,
       dni: operator.user.dni,
       phone: operator.user.phone,
       operatorStatus: operator.operatorStatus as OperatorStatus,
@@ -375,6 +506,7 @@ export class AdminService {
     return profileOperator;
   }
 
+  //LISTO
   async deleteOperator(operatorId: number) {
     const operator = await this.operatorService.getById(operatorId);
 
@@ -390,19 +522,8 @@ export class AdminService {
     await this.operatorService.deleteOperator(operatorId);
   }
 
-  async getAllActiveOperators(): Promise<ActiveOperatorResponseDto[]> {
-    const operators = await this.operatorService.getAllActiveOperators();
-
-    return operators.map((op) => ({
-      id: op.id,
-      userId: op.userId,
-      firstName: op.user.firstName,
-      lastName: op.user.lastName,
-      dni: op.user.dni,
-    }));
-  }
-
   //PLATAFORMAS - MAQUINARIA
+  //LISTO
   async createMachineWithFiles(
     dto: CreateMachineDto,
     files: {
@@ -461,6 +582,7 @@ export class AdminService {
     }
   }
 
+  //LISTO
   async updateMachineWithFiles(
     machineSerial: string,
     dto: UpdateMachineDto,
@@ -545,6 +667,7 @@ export class AdminService {
     }
   }
 
+  //LISTO
   async hasMachineChanges(
     current: {
       brand: string;
@@ -572,6 +695,7 @@ export class AdminService {
     );
   }
 
+  //LISTO
   async getMachineBySerial(machineSerial: string): Promise<MachineResponseDto> {
     try {
       const machine = await this.platformsService.getBySerial(machineSerial);
@@ -596,6 +720,7 @@ export class AdminService {
     }
   }
 
+  //LISTO
   async getAllMachinesPaginated(
     page: number,
     pageSize: number
@@ -632,6 +757,7 @@ export class AdminService {
     }
   }
 
+  //LISTO
   async deleteMachine(machineSerial: string) {
     try {
       const machine = await this.platformsService.getBySerial(machineSerial);
@@ -649,18 +775,5 @@ export class AdminService {
     } catch (error) {
       handleServiceError(error, "Error al eliminar la maquinaria");
     }
-  }
-
-  async getAllActiveMachines(): Promise<ActiveMachineResponseDto[]> {
-    const platforms = await this.platformsService.getAllActiveMachines();
-
-    return platforms.map((platform) => ({
-      id: platform.id,
-      serial: platform.serial,
-      brand: platform.brand,
-      model: platform.model,
-      typePlatform: platform.typePlatform,
-      price: platform.price,
-    }));
   }
 }

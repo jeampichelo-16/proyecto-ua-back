@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { forwardRef, Inject, Injectable } from "@nestjs/common";
 import { Client, Operator, Platform, Quotation, User } from "@prisma/client";
 import { CreateUserDto, UserResponseDto } from "./dto";
 import { Role } from "src/common/enum/role.enum";
@@ -20,19 +20,26 @@ import { CreateClientDto } from "../clients/dto/create-client.dto";
 import { UpdateClientDto } from "../clients/dto/update-client.dto";
 import { CreateQuotationDto } from "../quotations/dto/create-quotation.dto";
 import { QuotationsService } from "../quotations/quotations.service";
-import { UpdateQuotationDto } from "../quotations/dto/update-quotation-delivery.dto";
 import { QuotationStatus } from "src/common/enum/quotation-status.enum";
 import { OperatorStatus } from "src/common/enum/operator-status.enum";
 import { QuotationSummaryResponseDto } from "../quotations/dto/quotation-response.dto";
 import { QuotationDetailResponseDto } from "../quotations/dto/quotation-detail-response.dto";
 import { ActiveClientResponseDto } from "../clients/dto/client-active-response.dto";
+import { ActiveOperatorResponseDto } from "../operators/dto/active-operator-response.dto";
+import { ActiveMachineResponseDto } from "../platforms/dto/active-machine-response.dto";
+import { PlatformsService } from "../platforms/platforms.service";
+import { OperatorsService } from "../operators/operators.service";
+import { ActivateQuotationDto } from "../quotations/dto/active-quotation.dto";
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly clientsService: ClientsService,
-    private readonly quotationsService: QuotationsService
+    private readonly quotationsService: QuotationsService,
+    @Inject(forwardRef(() => OperatorsService)) // ✅
+    private readonly operatorService: OperatorsService,
+    private readonly platformsService: PlatformsService
   ) {}
 
   // AUTH - LOGIN / REESTABLECER CONTRASEÑA - ADMIN / LISTAR EMPLEADOS PAGINADOS / CREAR EMPLEADO
@@ -364,7 +371,8 @@ export class UsersService {
   }
 
   //ADMIN - CREAR OPERARIO
-  async createOperatorUser(dto: CreateOperatorDto): Promise<User> {
+  //LISTO
+  async createOperatorUser(dto: CreateOperatorDto) {
     try {
       const existingUser = await this.prisma.user.findFirst({
         where: {
@@ -379,7 +387,7 @@ export class UsersService {
       const username = dto.email.split("@")[0] + Date.now();
       const passwordRandom = generateSecurePassword(12);
 
-      return this.prisma.user.create({
+      return await this.prisma.user.create({
         data: {
           email: dto.email,
           username,
@@ -562,6 +570,15 @@ export class UsersService {
     }
   }
 
+  //QUOTATIONS - REGISTRAR COTIZACION
+  async createQuotation(dto: CreateQuotationDto): Promise<void> {
+    try {
+      await this.quotationsService.createQuotation(dto);
+    } catch (error) {
+      handleServiceError(error, "Error al registrar la cotización");
+    }
+  }
+
   //QUOTATIONS - OBTENER COTIZACIONES PAGINADAS
   async getAllQuotationsPaginated(
     page: number,
@@ -580,9 +597,10 @@ export class UsersService {
         id: q.id,
         clientName: q.client.name,
         platformSerial: q.platform.serial,
-        days: q.days,
         total: q.total,
         status: q.status,
+        startDate: q.startDate,
+        endDate: q.endDate,
         createdAt: q.createdAt,
       }));
 
@@ -613,7 +631,8 @@ export class UsersService {
         typeCurrency: quotation.typeCurrency,
         isNeedOperator: quotation.isNeedOperator,
         status: quotation.status,
-        days: quotation.days,
+        startDate: quotation.startDate,
+        endDate: quotation.endDate,
         quotationPath: quotation.quotationPath,
         createdAt: quotation.createdAt,
         updatedAt: quotation.updatedAt,
@@ -640,19 +659,10 @@ export class UsersService {
     }
   }
 
-  //QUOTATIONS - REGISTRAR COTIZACION
-  async createQuotation(dto: CreateQuotationDto) {
-    try {
-      await this.quotationsService.createQuotation(dto);
-    } catch (error) {
-      handleServiceError(error, "Error al registrar la cotización");
-    }
-  }
-
   //QUOTATIONS - ACTIVAR COTIZACION
   async activateQuotation(
     quotationId: number,
-    dto: UpdateQuotationDto
+    dto: ActivateQuotationDto
   ): Promise<void> {
     try {
       const quotation = await this.quotationsService.findByIdQuotation(
@@ -661,17 +671,16 @@ export class UsersService {
 
       if (!quotation) throwNotFound("Cotización no encontrada");
 
-      if (quotation.status !== QuotationStatus.PENDIENTE) {
+      if (quotation.status !== QuotationStatus.PENDIENTE_DATOS) {
         throwBadRequest(
-          "Solo se puede modificar cotizaciones en estado PENDIENTE"
+          "La cotización ya ha sido activada o está en otro estado."
         );
       }
 
-      // 🔍 Validación condicional
       if (quotation.isNeedOperator) {
         if (!dto.operatorId) {
           throwBadRequest(
-            "El ID del operador es obligatorio para esta cotización"
+            "El ID del operador es obligatorio para esta cotización."
           );
         }
 
@@ -680,16 +689,22 @@ export class UsersService {
         });
 
         if (!operator || operator.operatorStatus !== OperatorStatus.ACTIVO) {
-          throwBadRequest("El operador no existe o no está activo");
+          throwBadRequest("El operador no existe o no está activo.");
         }
       }
 
+      // 🔢 Calcular días desde las fechas
+      const start = new Date(quotation.startDate);
+      const end = new Date(quotation.endDate);
+
+      const diffMs = end.getTime() - start.getTime();
+      const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1; // redondeamos hacia arriba
+
       // 🧠 Delegar el cambio de estado, asignación de operador y descuento de horómetro
-      await this.quotationsService.updateQuotation(
+      await this.quotationsService.updateQuotationActive(
         quotationId,
         dto,
-        quotation.days,
-        quotation.platformId
+        days
       );
     } catch (error) {
       handleServiceError(error, "Error al actualizar datos de la cotización");
@@ -705,7 +720,10 @@ export class UsersService {
 
       if (!quotation) throwNotFound("Cotización no encontrada");
 
-      if (quotation.status !== QuotationStatus.PENDIENTE) {
+      if (
+        quotation.status !== QuotationStatus.PENDIENTE_DATOS &&
+        quotation.status !== QuotationStatus.PENDIENTE_PAGO
+      ) {
         throwBadRequest(
           "Solo se puede cancelar cotizaciones en estado PENDIENTE"
         );
@@ -715,6 +733,33 @@ export class UsersService {
     } catch (error) {
       handleServiceError(error, "Error al cancelar la cotización");
     }
+  }
+
+  //USERS - LISTAR OPERARIOS ACTIVOS
+  async getAllActiveOperators(): Promise<ActiveOperatorResponseDto[]> {
+    const operators = await this.operatorService.getAllActiveOperators();
+
+    return operators.map((op) => ({
+      id: op.id,
+      userId: op.userId,
+      firstName: op.user.firstName,
+      lastName: op.user.lastName,
+      dni: op.user.dni,
+    }));
+  }
+
+  //USERS - LISTAR PLATAFORMAS ACTIVAS
+  async getAllActiveMachines(): Promise<ActiveMachineResponseDto[]> {
+    const platforms = await this.platformsService.getAllActiveMachines();
+
+    return platforms.map((platform) => ({
+      id: platform.id,
+      serial: platform.serial,
+      brand: platform.brand,
+      model: platform.model,
+      typePlatform: platform.typePlatform,
+      price: platform.price,
+    }));
   }
 
   /*

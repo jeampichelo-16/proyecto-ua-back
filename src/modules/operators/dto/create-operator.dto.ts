@@ -1,7 +1,12 @@
-// src/modules/operators/dto/create-operator.dto.ts
-
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsNotEmpty, IsString } from "class-validator";
+import { Type } from "class-transformer";
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsPositive,
+} from "class-validator";
 
 export class CreateOperatorDto {
   @ApiProperty({ example: "operario@example.com" })
@@ -27,4 +32,10 @@ export class CreateOperatorDto {
   @IsNotEmpty()
   @IsString()
   phone?: string;
+
+  @ApiProperty({ example: "132" })
+  @Type(() => Number)
+  @IsNumber()
+  @IsPositive()
+  costService: number;
 }

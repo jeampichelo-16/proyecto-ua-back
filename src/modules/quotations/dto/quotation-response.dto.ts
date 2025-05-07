@@ -12,13 +12,16 @@ export class QuotationSummaryResponseDto {
   platformSerial: string;
 
   @ApiProperty()
-  days: number;
-
-  @ApiProperty()
   total: number;
 
   @ApiProperty()
   status: QuotationStatus;
+
+  @ApiProperty()
+  startDate: Date;
+
+  @ApiProperty()
+  endDate: Date;
 
   @ApiProperty()
   createdAt: Date;

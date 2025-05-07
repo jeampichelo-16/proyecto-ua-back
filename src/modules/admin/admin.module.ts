@@ -7,7 +7,7 @@ import { MailModule } from "../mail/mail.module";
 import { OperatorsModule } from "../operators/operators.module";
 import { FirebaseModule } from "../firebase/firebase.module";
 import { PlatformsModule } from "../platforms/platforms.module";
-import { ClientsModule } from "../clients/clients.module";
+import { PrismaModule } from "../prisma/prisma.module";
 
 @Module({
   controllers: [AdminController],
@@ -19,6 +19,7 @@ import { ClientsModule } from "../clients/clients.module";
     OperatorsModule,
     FirebaseModule,
     PlatformsModule,
+    PrismaModule  
   ],
 })
 export class AdminModule {}

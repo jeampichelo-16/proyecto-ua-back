@@ -31,7 +31,7 @@ import { PaginationQueryDto } from "src/common/dto/pagination-query.dto";
 import { CreateClientDto } from "../clients/dto/create-client.dto";
 import { UpdateClientDto } from "../clients/dto/update-client.dto";
 import { CreateQuotationDto } from "../quotations/dto/create-quotation.dto";
-import { UpdateQuotationDto } from "../quotations/dto/update-quotation-delivery.dto";
+import { ActivateQuotationDto } from "../quotations/dto/active-quotation.dto";
 
 @ApiTags("users")
 @Controller("users")
@@ -89,24 +89,6 @@ export class UsersController {
     };
   }
 
-  //obtener clientes activos
-  @Get("active-clients")
-  @HttpCode(200)
-  @ApiOperation({
-    summary: "Listar todos los clientes activos",
-  })
-  @ApiResponse({ status: 200, type: MessageResponseDto })
-  @ApiResponse({ status: 401, type: ErrorResponseDto })
-  async getAllActiveClients(): Promise<MessageResponseDto> {
-    const clientsPaginated = await this.usersService.getAllActiveClients();
-    return {
-      message: "Lista de clientes activos obtenida correctamente",
-      statusCode: 200,
-      success: true,
-      data: clientsPaginated,
-    };
-  }
-
   @Patch("clients/:id")
   @HttpCode(200)
   @ApiOperation({ summary: "Actualizar un cliente" })
@@ -154,6 +136,7 @@ export class UsersController {
   }
 
   //crear cotizacion
+  //LISTO
   @Post("quotations")
   @HttpCode(201)
   @ApiOperation({ summary: "Registrar una cotización" })
@@ -174,12 +157,12 @@ export class UsersController {
   //activar cotizacion
   @Patch("quotations/:id/activate")
   @HttpCode(200)
-  @ApiOperation({ summary: "Activar una cotización" })
+  @ApiOperation({ summary: "Activar una cotización (pasar a PENDIENTE_PAGO)" })
   @ApiResponse({ status: 200, type: MessageResponseDto })
   @ApiResponse({ status: 400, type: ErrorResponseDto })
   async activateQuotation(
     @Param("id") id: number,
-    @Body() dto: UpdateQuotationDto
+    @Body() dto: ActivateQuotationDto
   ): Promise<MessageResponseDto> {
     await this.usersService.activateQuotation(id, dto);
 
@@ -242,6 +225,58 @@ export class UsersController {
       statusCode: 200,
       success: true,
       data: quotation,
+    };
+  }
+
+  //OPCIONES ACTIVAS
+  @Get("active-clients")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Listar todos los clientes activos",
+  })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 401, type: ErrorResponseDto })
+  async getAllActiveClients(): Promise<MessageResponseDto> {
+    const clientsPaginated = await this.usersService.getAllActiveClients();
+    return {
+      message: "Lista de clientes activos obtenida correctamente",
+      statusCode: 200,
+      success: true,
+      data: clientsPaginated,
+    };
+  }
+
+  @Get("active-operators")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Listar todos los operarios activos",
+  })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 401, type: ErrorResponseDto })
+  async getAllActiveOperators(): Promise<MessageResponseDto> {
+    const operatorsPaginated = await this.usersService.getAllActiveOperators();
+    return {
+      message: "Lista de operarios activos obtenida correctamente",
+      statusCode: 200,
+      success: true,
+      data: operatorsPaginated,
+    };
+  }
+
+  @Get("active-machines")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Listar todas las maquinarias activas",
+  })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 401, type: ErrorResponseDto })
+  async getAllActiveMachines(): Promise<MessageResponseDto> {
+    const machinesPaginated = await this.usersService.getAllActiveMachines();
+    return {
+      message: "Lista de maquinarias activas obtenida correctamente",
+      statusCode: 200,
+      success: true,
+      data: machinesPaginated,
     };
   }
 }

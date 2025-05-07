@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Client, Operator, Platform, Quotation } from "@prisma/client";
+import { Client, Platform, Quotation } from "@prisma/client";
 import * as streamBuffers from "stream-buffers";
 const PDFDocument = require("pdfkit");
 
@@ -12,17 +12,26 @@ export class PdfService {
     platform: Platform,
     updatedSubtotal: number,
     deliveryAmount: number,
-    isNeedOperator: boolean
+    isNeedOperator: boolean,
+    days: number
   ): Promise<Buffer> {
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
     const buffer = new streamBuffers.WritableStreamBuffer();
     doc.pipe(buffer);
 
     const yellow = "#fff4cc";
     const gray = "#dddddd";
+    const lightGray = "#f2f2f2";
     const leftX = 50;
     const rightX = 400;
     const contentWidth = 510;
+
+    const formatDate = (dateStr: string) =>
+      new Date(dateStr).toLocaleDateString("es-PE");
+
+    const rentalPeriod = `${formatDate(
+      quotation.startDate.toString()
+    )} al ${formatDate(quotation.endDate.toString())}`;
 
     // Logo y título
     doc.image("src/assets/logo.png", leftX, 40, { width: 60 });
@@ -31,7 +40,7 @@ export class PdfService {
       .fillColor("black")
       .text("COTIZACIÓN", rightX, 50, { align: "right" });
 
-    // Empresa Info
+    // Empresa info
     doc.fontSize(10).fillColor("black").font("Helvetica");
     let y = 100;
     doc
@@ -45,16 +54,37 @@ export class PdfService {
       .text("+51 949 128 854", leftX + 80, y + 45);
 
     // Cotización Info
+    const infoStartY = 100;
+    const infoGap = 20;
+    const labelX = rightX;
+    const valueX = rightX + 110;
+    doc.fontSize(10);
+
+    doc.font("Helvetica-Bold").text("FECHA:", labelX, infoStartY);
     doc
-      .text("FECHA:", rightX, y)
-      .text(new Date().toLocaleDateString("es-PE"), rightX + 70, y)
-      .text("COTIZACIÓN #:", rightX, y + 15)
-      .text(`#${quotation.id}`, rightX + 70, y + 15)
-      .text("CLIENTE ID:", rightX, y + 30)
-      .text(`${client.id}`, rightX + 70, y + 30);
+      .font("Helvetica")
+      .text(new Date().toLocaleDateString("es-PE"), valueX, infoStartY, {
+        width: 100,
+        align: "left",
+        continued: false,
+      });
+
+    doc
+      .font("Helvetica-Bold")
+      .text("COTIZACIÓN #:", labelX, infoStartY + infoGap);
+    doc
+      .font("Helvetica")
+      .text(`#${quotation.id}`, valueX, infoStartY + infoGap);
+
+    doc
+      .font("Helvetica-Bold")
+      .text("CLIENTE ID:", labelX, infoStartY + infoGap * 2);
+    doc
+      .font("Helvetica")
+      .text(`${client.id}`, valueX, infoStartY + infoGap * 2);
 
     // CLIENTE
-    y = 175;
+    y = 180;
     doc.rect(leftX, y, contentWidth, 20).fill(yellow);
     doc
       .fillColor("black")
@@ -74,89 +104,129 @@ export class PdfService {
       .text("Teléfono:", leftX, y + lineHeight * 3)
       .text(client.phone ?? "-", leftX + 80, y + lineHeight * 3);
 
-    // Encabezado de la tabla
+    // Encabezado tabla
     y += lineHeight * 5;
-    const headers = ["DESCRIPCIÓN", "PRECIO UNIT.", "CANT.", "TOTAL"];
-    const colWidths = [250, 90, 60, 100];
-    doc.rect(leftX, y, contentWidth, 25).fill(yellow);
-    doc.font("Helvetica-Bold").fontSize(10).fillColor("black");
-    let colX = leftX + 5;
+    const headers = [
+      "DESCRIPCIÓN",
+      "COSTO DIARIO",
+      "PERIODO",
+      "DÍAS",
+      "TOTAL",
+    ];
+    const colWidths = [220, 80, 90, 50, 70];
+    const headerHeight = 25;
+
+    doc.rect(leftX, y, contentWidth, headerHeight).fill(yellow);
+    doc.font("Helvetica-Bold").fontSize(9).fillColor("black");
+
+    let colX = leftX;
     headers.forEach((h, i) => {
-      doc.text(h, colX, y + 7, { width: colWidths[i] });
+      const align =
+        i === 0 ? "left" : i === headers.length - 1 ? "right" : "center";
+      doc.text(h, colX + 5, y + 6, { width: colWidths[i] - 10, align });
       colX += colWidths[i];
     });
 
     // Fila plataforma
-    y += 30;
-    const rowHeight = 60;
-    doc.rect(leftX, y, contentWidth, rowHeight).stroke(gray);
-    doc.font("Helvetica").fontSize(10);
+    y += headerHeight;
+    const rowHeight = 45;
+    let rowIndex = 0;
 
-    const platformDescription = `Marca: ${platform.brand}\nModelo: ${platform.model}\nTipo: ${platform.typePlatform}`;
-    colX = leftX + 5;
-    doc.text(platformDescription, colX, y + 8, { width: colWidths[0] - 10 });
-    doc.text(platform.price.toFixed(2), colX + colWidths[0], y + 22);
-    doc.text(
-      quotation.days.toString(),
-      colX + colWidths[0] + colWidths[1],
-      y + 22
-    );
-    doc.text(
-      (platform.price * quotation.days).toFixed(2),
-      colX + colWidths[0] + colWidths[1] + colWidths[2],
-      y + 22
-    );
+    const drawRow = (rowData: {
+      description: string;
+      price: number;
+      period: string;
+      days: number;
+      total: number;
+    }) => {
+      const isStriped = rowIndex % 2 === 1;
+      if (isStriped) {
+        doc.rect(leftX, y, contentWidth, rowHeight).fill(lightGray);
+      } else {
+        doc.rect(leftX, y, contentWidth, rowHeight).stroke(gray);
+      }
 
-    // Fila operador si se necesita
-    if (isNeedOperator) {
+      doc.fillColor("black").font("Helvetica").fontSize(10);
+      colX = leftX;
+      doc.text(rowData.description, colX + 5, y + 5, {
+        width: colWidths[0] - 10,
+      });
+      doc.text(rowData.price.toFixed(2), colX + colWidths[0] + 5, y + 15, {
+        width: colWidths[1] - 10,
+        align: "right",
+      });
+      doc.text(rowData.period, colX + colWidths[0] + colWidths[1] + 5, y + 15, {
+        width: colWidths[2] - 10,
+        align: "center",
+      });
+      doc.text(
+        `${rowData.days}`,
+        colX + colWidths[0] + colWidths[1] + colWidths[2] + 5,
+        y + 15,
+        {
+          width: colWidths[3] - 10,
+          align: "center",
+        }
+      );
+      doc.text(
+        rowData.total.toFixed(2),
+        colX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 5,
+        y + 15,
+        { width: colWidths[4] - 10, align: "right" }
+      );
+
       y += rowHeight;
-      doc.rect(leftX, y, contentWidth, rowHeight).stroke(gray);
-      const operatorDescription = `Operador`;
-      doc.text(operatorDescription, colX, y + 8, { width: colWidths[0] - 10 });
-      doc.text(dailyOperatorCost.toFixed(2), colX + colWidths[0], y + 22);
-      doc.text(
-        quotation.days.toString(),
-        colX + colWidths[0] + colWidths[1],
-        y + 22
-      );
-      doc.text(
-        (dailyOperatorCost * quotation.days).toFixed(2),
-        colX + colWidths[0] + colWidths[1] + colWidths[2],
-        y + 22
-      );
+      rowIndex++;
+    };
+
+    drawRow({
+      description: `Marca: ${platform.brand}\nModelo: ${platform.model}\nTipo: ${platform.typePlatform}`,
+      price: platform.price,
+      period: rentalPeriod,
+      days,
+      total: platform.price * days,
+    });
+
+    if (isNeedOperator) {
+      drawRow({
+        description: "Operador",
+        price: dailyOperatorCost,
+        period: rentalPeriod,
+        days,
+        total: dailyOperatorCost * days,
+      });
     }
 
     // Totales
-    y += rowHeight + 10;
-    doc.font("Helvetica");
+    y += 15;
+    doc.font("Helvetica").fontSize(10);
     doc
       .text("Envío", rightX, y)
       .text(`S/ ${deliveryAmount.toFixed(2)}`, rightX + 80, y, {
         align: "right",
       });
-
     doc
       .font("Helvetica-Bold")
       .text("Subtotal", rightX, y + 15)
       .text(`S/ ${updatedSubtotal.toFixed(2)}`, rightX + 80, y + 15, {
         align: "right",
       });
-
     doc
+      .font("Helvetica")
       .text("IGV (18%)", rightX, y + 30)
       .text(`S/ ${quotation.igv.toFixed(2)}`, rightX + 80, y + 30, {
         align: "right",
       });
 
-    doc
-      .font("Helvetica-Bold")
-      .text("TOTAL", rightX, y + 45)
-      .text(`S/ ${quotation.total.toFixed(2)}`, rightX + 80, y + 45, {
-        align: "right",
-      });
+    const totalY = y + 45;
+    doc.rect(rightX - 10, totalY - 3, 180, 20).fill(lightGray);
+    doc.fillColor("black").font("Helvetica-Bold").text("TOTAL", rightX, totalY);
+    doc.text(`S/ ${quotation.total.toFixed(2)}`, rightX + 80, totalY, {
+      align: "right",
+    });
 
-    // Términos y Condiciones
-    y += 70;
+    // Términos y condiciones
+    y = totalY + 50;
     doc.rect(leftX, y, contentWidth, 20).fill(yellow);
     doc
       .fillColor("black")
@@ -174,13 +244,32 @@ export class PdfService {
       doc.text(line, leftX, y + i * 12);
     });
 
-    // Footer optimizado para evitar segunda hoja
+    // Imagen de medios de pago
+    y += 60;
+    const imageWidth = 500;
+    const imageX = (doc.page.width - imageWidth) / 2;
+    doc.image("src/assets/medio_pago.png", imageX, y, { width: imageWidth });
+
+    // Añade espacio antes del footer
+    y += 160;
+
+    // Línea gris justo encima del texto
+    doc
+      .moveTo(leftX, y)
+      .lineTo(leftX + contentWidth, y)
+      .strokeColor("#cccccc")
+      .stroke();
+
+    // Texto centrado en la parte inferior
+    y += 10;
     doc.fontSize(8).fillColor("gray");
     doc.text(
       "Si usted tiene alguna pregunta sobre esta cotización, por favor, póngase en contacto con nosotros",
       leftX,
-      715,
-      { align: "center" }
+      y,
+      {
+        align: "center",
+      }
     );
     doc.text("MANSERCOM S.A.C | ventas@mansercom.pe | +51 949 128 854", {
       align: "center",

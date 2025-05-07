@@ -12,7 +12,6 @@ import { validationSchema } from "./config/validation.schema";
 import { AdminModule } from "./modules/admin/admin.module";
 import { PrismaService } from "./modules/prisma/prisma.service";
 import { PrismaModule } from "./modules/prisma/prisma.module";
-import { EmployeeModule } from "./modules/employee/employee.module";
 import { ClientsModule } from './modules/clients/clients.module';
 import { QuotationsModule } from './modules/quotations/quotations.module';
 import { PlatformsModule } from './modules/platforms/platforms.module';
@@ -41,7 +40,6 @@ import { PdfModule } from './modules/pdf/pdf.module';
     ConfigModule,
     AdminModule,
     PrismaModule,
-    EmployeeModule,
     ClientsModule,
     QuotationsModule,
     PlatformsModule,

@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { QuotationStatus } from "@prisma/client";
 
 export class QuotationDetailResponseDto {
@@ -33,7 +33,10 @@ export class QuotationDetailResponseDto {
   status: QuotationStatus;
 
   @ApiProperty()
-  days: number;
+  startDate: Date;
+
+  @ApiProperty()
+  endDate: Date;
 
   @ApiProperty()
   quotationPath: string;

@@ -9,8 +9,8 @@ import { MailService } from "../mail/mail.service";
 import { FirebaseService } from "../firebase/firebase.service";
 import { PlatformStatus } from "src/common/enum/platform-status.enum";
 import { Client, Operator, Platform, Quotation } from "@prisma/client";
-import { UpdateQuotationDto } from "./dto/update-quotation-delivery.dto";
 import { OperatorStatus } from "src/common/enum/operator-status.enum";
+import { ActivateQuotationDto } from "./dto/active-quotation.dto";
 
 @Injectable()
 export class QuotationsService {
@@ -86,112 +86,236 @@ export class QuotationsService {
     return `${prefix}/${entityId}/cotizacion-${timestamp}.${extension}`;
   }
 
+  //CREAR COTIZACION
+  /*
   async createQuotation(dto: CreateQuotationDto): Promise<void> {
-    const { clientId, platformId, days, description, isNeedOperator } = dto;
+    const {
+      clientId,
+      platformId,
+      description,
+      startDate,
+      endDate,
+      isNeedOperator,
+    } = dto;
 
-    try {
-      await this.prisma.$transaction(async (tx) => {
-        // 1. Validar cliente
-        const client = await tx.client.findUnique({ where: { id: clientId } });
-        if (!client || !client.isActive) {
-          throwBadRequest("El cliente no existe o está inactivo");
-        }
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Validar cliente
+      const client = await tx.client.findUnique({ where: { id: clientId } });
+      if (!client || !client.isActive) {
+        throwBadRequest("El cliente no existe o está inactivo");
+      }
 
-        // 2. Obtener plataforma libre y bloquear la ejecución
-        const platform = await tx.platform.findUnique({
-          where: { id: platformId },
-        });
-
-        if (!platform || platform.status !== PlatformStatus.ACTIVO) {
-          throwBadRequest("La plataforma no está activa o no existe");
-        }
-
-        // 🔒 3. Validar si ya tiene cotización activa
-        const existing = await tx.quotation.findFirst({
-          where: {
-            platformId,
-            status: {
-              in: [QuotationStatus.PENDIENTE],
-            },
-          },
-        });
-        if (existing) {
-          throwBadRequest("Esta plataforma ya tiene una cotización pendiente.");
-        }
-
-        const requiredHours = days * 8;
-        if (requiredHours > platform.horometerMaintenance) {
-          throwBadRequest(
-            `El horómetro requerido (${requiredHours}h) excede el límite de mantenimiento (${platform.horometerMaintenance}h)`
-          );
-        }
-
-        // 6. Calcular montos
-        const amount = platform.price;
-        const subtotal = amount * days;
-        const igv = subtotal * 0.18;
-        const total = subtotal + igv;
-
-        // 7. Crear cotización
-        await tx.quotation.create({
-          data: {
-            clientId,
-            platformId,
-            description,
-            days,
-            isNeedOperator,
-            typeCurrency: "S/",
-            amount,
-            subtotal,
-            igv,
-            total,
-            quotationPath: "",
-            status: QuotationStatus.PENDIENTE,
-          },
-        });
-
-        await tx.platform.update({
-          where: { id: platformId },
-          data: {
-            status: PlatformStatus.EN_COTIZACION,
-          },
-        });
+      // 2. Validar plataforma
+      const platform = await tx.platform.findUnique({
+        where: { id: platformId },
       });
-    } catch (error) {
-      handleServiceError(
-        error,
-        "Error al registrar la cotización (transacción)"
-      );
-    }
+      if (!platform || platform.status !== PlatformStatus.ACTIVO) {
+        throwBadRequest("La plataforma no está activa o no existe");
+      }
+
+      // 3. Validar cotización pendiente
+      const existing = await tx.quotation.findFirst({
+        where: {
+          platformId,
+          status: {
+            in: [
+              QuotationStatus.PENDIENTE_DATOS,
+              QuotationStatus.PENDIENTE_PAGO,
+            ],
+          },
+        },
+      });
+
+      if (existing) {
+        throwBadRequest("Esta plataforma ya tiene una cotización pendiente.");
+      }
+      
+      // 4. Validar fechas
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (start >= end) {
+        throwBadRequest("La fecha de inicio debe ser anterior a la de fin.");
+      }
+
+      const diffMs = end.getTime() - start.getTime();
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24)); // total días
+      const requiredHours = diffDays * 8;
+
+      if (requiredHours > platform.horometerMaintenance) {
+        throwBadRequest(
+          `El horómetro requerido (${requiredHours}h) excede el límite (${platform.horometerMaintenance}h)`
+        );
+      }
+
+      // 5. Calcular montos
+      const amount = platform.price;
+      const subtotal = amount * diffDays;
+      const igv = subtotal * 0.18;
+      const total = subtotal + igv;
+
+      // 6. Crear cotización
+      await tx.quotation.create({
+        data: {
+          clientId,
+          platformId,
+          description,
+          isNeedOperator,
+          typeCurrency: "S/",
+          amount,
+          subtotal,
+          igv,
+          total,
+          quotationPath: "",
+          status: QuotationStatus.PENDIENTE_DATOS,
+          startDate: start,
+          endDate: end,
+        },
+      });
+
+      // 7. Actualizar estado plataforma
+      await tx.platform.update({
+        where: { id: platformId },
+        data: {
+          status: PlatformStatus.EN_COTIZACION,
+        },
+      });
+      
+    });
   }
 
-  async updateQuotation(
+  */
+
+  async createQuotation(dto: CreateQuotationDto): Promise<void> {
+    const {
+      clientId,
+      platformId,
+      description,
+      startDate,
+      endDate,
+      isNeedOperator,
+    } = dto;
+
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Validar cliente
+      const client = await tx.client.findUnique({ where: { id: clientId } });
+      if (!client || !client.isActive) {
+        throwBadRequest("El cliente no existe o está inactivo");
+      }
+
+      // 2. Validar plataforma
+      const platform = await tx.platform.findUnique({
+        where: { id: platformId },
+      });
+
+      if (!platform || platform.status !== PlatformStatus.ACTIVO) {
+        throwBadRequest("La plataforma no está activa o no existe");
+      }
+
+      // 3. Validar cotización pendiente
+      const existing = await tx.quotation.findFirst({
+        where: {
+          platformId,
+          status: {
+            in: [
+              QuotationStatus.PENDIENTE_DATOS,
+              QuotationStatus.PENDIENTE_PAGO,
+            ],
+          },
+        },
+      });
+
+      if (existing) {
+        throwBadRequest("Esta plataforma ya tiene una cotización pendiente.");
+      }
+
+      // 4. Validar fechas
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      if (start >= end) {
+        throwBadRequest("La fecha de inicio debe ser anterior a la de fin.");
+      }
+
+      //VERIFICAR HOROMETRO
+
+      const diffMs = end.getTime() - start.getTime();
+      const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1; // corregido
+      const requiredHours = days * 8; // total horas requeridas
+
+      if (requiredHours > platform.horometerMaintenance) {
+        throwBadRequest(
+          `El horómetro requerido (${requiredHours}h) excede el límite (${platform.horometerMaintenance}h)`
+        );
+      }
+
+      const amountPlatform = platform.price * days; // +1 para incluir el día de inicio
+
+      // 5. Crear cotización
+      await tx.quotation.create({
+        data: {
+          clientId,
+          platformId,
+          description,
+          isNeedOperator,
+          typeCurrency: "S/",
+          quotationPath: "",
+          startDate: start,
+          endDate: end,
+          amount: amountPlatform,
+          subtotal: 0,
+          igv: 0,
+          total: 0,
+          status: QuotationStatus.PENDIENTE_DATOS,
+        },
+      });
+
+      // 6. Actualizar estado plataforma
+      await tx.platform.update({
+        where: { id: platformId },
+        data: {
+          status: PlatformStatus.EN_COTIZACION,
+        },
+      });
+    });
+  }
+
+  async updateQuotationActive(
     quotationId: number,
-    dto: UpdateQuotationDto,
-    days: number,
-    platformId: number
+    dto: ActivateQuotationDto,
+    days: number
   ): Promise<void> {
     try {
       const { deliveryAmount, operatorId } = dto;
-      const hours = days * 8;
 
       const quotation = await this.prisma.quotation.findUnique({
         where: { id: quotationId },
         select: {
           subtotal: true,
           isNeedOperator: true,
+          amount: true,
         },
       });
 
       if (!quotation) throwNotFound("Cotización no encontrada");
 
-      const dailyOperatorCost = 200;
+      const operator = await this.prisma.operator.findUnique({
+        where: { id: operatorId },
+      });
+
+      if (quotation.isNeedOperator && !operator) {
+        throwBadRequest("El operario no existe o no está activo");
+      }
+
+      const dailyOperatorCost = operator?.costService ?? 0;
       const operatorCost = quotation.isNeedOperator
         ? dailyOperatorCost * days
         : 0;
 
       const updatedSubtotal =
-        quotation.subtotal + (deliveryAmount ?? 0) + operatorCost;
+        quotation.subtotal +
+        (deliveryAmount ?? 0) +
+        operatorCost +
+        quotation.amount;
       const igv = updatedSubtotal * 0.18;
       const total = updatedSubtotal + igv;
 
@@ -201,20 +325,11 @@ export class QuotationsService {
         data: {
           deliveryAmount,
           operatorId: quotation.isNeedOperator ? operatorId : null,
-          status: QuotationStatus.APROBADO,
+          status: QuotationStatus.PENDIENTE_PAGO,
+          statusToPendingPagoAt: new Date(),
           subtotal: updatedSubtotal,
           igv,
           total,
-        },
-      });
-
-      await this.prisma.platform.update({
-        where: { id: platformId },
-        data: {
-          horometerMaintenance: {
-            decrement: hours,
-          },
-          status: PlatformStatus.EN_TRABAJO,
         },
       });
 
@@ -222,7 +337,7 @@ export class QuotationsService {
         await this.prisma.operator.update({
           where: { id: operatorId },
           data: {
-            operatorStatus: OperatorStatus.EN_TRABAJO,
+            operatorStatus: OperatorStatus.EN_COTIZACION,
           },
         });
       }
@@ -246,7 +361,8 @@ export class QuotationsService {
         fullQuotation.platform,
         updatedSubtotal,
         deliveryAmount ?? 0,
-        quotation.isNeedOperator
+        quotation.isNeedOperator,
+        days
       );
 
       const generateNameFolder = await this.generateUniqueFirebaseFilename({
@@ -281,21 +397,34 @@ export class QuotationsService {
         throwNotFound("Cotización no encontrada");
       }
 
-      if (quotation.status !== QuotationStatus.PENDIENTE) {
+      if (
+        quotation.status !== QuotationStatus.PENDIENTE_DATOS &&
+        quotation.status !== QuotationStatus.PENDIENTE_PAGO
+      ) {
         throwBadRequest(
-          "No se puede cancelar una cotización que no está pendiente"
+          "Solo se puede cancelar cotizaciones en estado PENDIENTE"
         );
       }
 
       await this.prisma.$transaction(async (tx) => {
         await tx.quotation.update({
           where: { id: quotationId },
-          data: { status: QuotationStatus.RECHAZADO },
+          data: {
+            status: QuotationStatus.RECHAZADO,
+            statusToRechazadoAt: new Date(),
+          },
         });
 
         await tx.platform.update({
           where: { id: quotation.platformId },
           data: { status: PlatformStatus.ACTIVO },
+        });
+
+        await tx.operator.updateMany({
+          where: quotation.operatorId
+            ? { id: quotation.operatorId }
+            : undefined,
+          data: { operatorStatus: OperatorStatus.ACTIVO },
         });
       });
     } catch (error) {
