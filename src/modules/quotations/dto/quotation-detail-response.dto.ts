@@ -29,6 +29,9 @@ export class QuotationDetailResponseDto {
   @ApiProperty()
   isNeedOperator: boolean;
 
+  @ApiProperty()
+  paymentReceiptPath: string; 
+
   @ApiProperty({ enum: QuotationStatus })
   status: QuotationStatus;
 
@@ -44,8 +47,14 @@ export class QuotationDetailResponseDto {
   @ApiProperty()
   createdAt: Date;
 
-  @ApiProperty()
-  updatedAt: Date;
+  @ApiProperty({ nullable: true })
+  statusToPendingPagoAt?: Date | null;
+
+  @ApiProperty({ nullable: true })
+  statusToPagadoAt?: Date | null;
+
+  @ApiProperty({ nullable: true })
+  statusToRechazadoAt?: Date | null;
 
   @ApiProperty({
     example: {

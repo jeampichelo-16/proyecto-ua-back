@@ -636,8 +636,11 @@ export class UsersService {
         startDate: quotation.startDate,
         endDate: quotation.endDate,
         quotationPath: quotation.quotationPath,
+        paymentReceiptPath: quotation.paymentReceiptPath ?? "",
         createdAt: quotation.createdAt,
-        updatedAt: quotation.updatedAt,
+        statusToPendingPagoAt: quotation.statusToPendingPagoAt,
+        statusToPagadoAt: quotation.statusToPagadoAt,
+        statusToRechazadoAt: quotation.statusToRechazadoAt,
         client: {
           id: quotation.client.id,
           name: quotation.client.name,
@@ -679,6 +682,7 @@ export class UsersService {
         );
       }
 
+      // ✅ Si necesita operador, valida que operatorId venga y sea válido
       if (quotation.isNeedOperator) {
         if (!dto.operatorId) {
           throwBadRequest(
@@ -700,9 +704,9 @@ export class UsersService {
       const end = new Date(quotation.endDate);
 
       const diffMs = end.getTime() - start.getTime();
-      const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1; // redondeamos hacia arriba
+      const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1;
 
-      // 🧠 Delegar el cambio de estado, asignación de operador y descuento de horómetro
+      // 🧠 Delegar el cambio de estado, asignación de operador y PDF
       await this.quotationsService.updateQuotationActive(
         quotationId,
         dto,
@@ -758,13 +762,16 @@ export class UsersService {
         extension: "pdf",
       });
 
-        const paymentReceiptUrl = await this.firebaseService.uploadBuffer(
-          paymentReceiptFile.buffer,
-          paymentReceiptPath,
-          paymentReceiptFile.mimetype
+      const paymentReceiptUrl = await this.firebaseService.uploadBuffer(
+        paymentReceiptFile.buffer,
+        paymentReceiptPath,
+        paymentReceiptFile.mimetype
       );
 
-      await this.quotationsService.markQuotationAsPaid(quotationId, paymentReceiptUrl);
+      await this.quotationsService.markQuotationAsPaid(
+        quotationId,
+        paymentReceiptUrl
+      );
     } catch (error) {
       handleServiceError(error, "Error al marcar la cotización como pagada");
     }

@@ -8,9 +8,10 @@ import { PdfService } from "../pdf/pdf.service";
 import { MailService } from "../mail/mail.service";
 import { FirebaseService } from "../firebase/firebase.service";
 import { PlatformStatus } from "src/common/enum/platform-status.enum";
-import { Client, Operator, Platform, Quotation } from "@prisma/client";
+import { Client, Platform, Quotation } from "@prisma/client";
 import { OperatorStatus } from "src/common/enum/operator-status.enum";
 import { ActivateQuotationDto } from "./dto/active-quotation.dto";
+import type { Operator } from "@prisma/client"; // asegúrate de tener esto si no está
 
 @Injectable()
 export class QuotationsService {
@@ -298,12 +299,16 @@ export class QuotationsService {
 
       if (!quotation) throwNotFound("Cotización no encontrada");
 
-      const operator = await this.prisma.operator.findUnique({
-        where: { id: operatorId },
-      });
+      // ✅ Solo buscar operador si se necesita
+      let operator: Operator | null = null;
+      if (quotation.isNeedOperator) {
+        if (!operatorId) throwBadRequest("Falta el ID del operador requerido.");
+        operator = await this.prisma.operator.findUnique({
+          where: { id: operatorId },
+        });
 
-      if (quotation.isNeedOperator && !operator) {
-        throwBadRequest("El operario no existe o no está activo");
+        if (!operator)
+          throwBadRequest("El operario no existe o no está activo");
       }
 
       const dailyOperatorCost = operator?.costService ?? 0;
@@ -316,10 +321,10 @@ export class QuotationsService {
         (deliveryAmount ?? 0) +
         operatorCost +
         quotation.amount;
+
       const igv = updatedSubtotal * 0.18;
       const total = updatedSubtotal + igv;
 
-      // ✅ Actualizar la cotización
       await this.prisma.quotation.update({
         where: { id: quotationId },
         data: {
@@ -342,7 +347,6 @@ export class QuotationsService {
         });
       }
 
-      // 📌 Cargar los datos completos para el PDF
       const fullQuotation = await this.prisma.quotation.findUnique({
         where: { id: quotationId },
         include: {
@@ -453,11 +457,9 @@ export class QuotationsService {
       //ELIMINAR ARCHIVO FIREBASE
 
       await this.prisma.$transaction(async (tx) => {
-        await this.firebaseService.deleteFileFromUrl(quotation.quotationPath);
-
-        await this.firebaseService.deleteFileFromUrl(
-          quotation.paymentReceiptPath ?? ""
-        );
+        if (quotation.status === QuotationStatus.PENDIENTE_PAGO) {
+          await this.firebaseService.deleteFileFromUrl(quotation.quotationPath);
+        }
 
         await tx.quotation.update({
           where: { id: quotationId },

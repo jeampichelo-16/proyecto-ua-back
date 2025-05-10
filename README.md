@@ -155,3 +155,7 @@ Para consultas o soporte, por favor contacta a:
 
 - **Nombre**: Sebastián Ch.
 - **Correo Electrónico**: schaquila@autonoma.edu.pe
+
+## DEV DEPENDENCES
+
+npm install -D @faker-js/faker chalk
