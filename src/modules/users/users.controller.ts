@@ -10,12 +10,15 @@ import {
   Param,
   Patch,
   Delete,
+  UseInterceptors,
+  UploadedFiles,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "src/modules/auth/guards/jwt-auth.guard";
 import { UsersService } from "./users.service";
 import { UserResponseDto } from "./dto";
 import {
   ApiBearerAuth,
+  ApiConsumes,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -32,6 +35,8 @@ import { CreateClientDto } from "../clients/dto/create-client.dto";
 import { UpdateClientDto } from "../clients/dto/update-client.dto";
 import { CreateQuotationDto } from "../quotations/dto/create-quotation.dto";
 import { ActivateQuotationDto } from "../quotations/dto/active-quotation.dto";
+import { FileFieldsInterceptor } from "@nestjs/platform-express";
+import { multerOptionsMemory } from "src/common/utils/multer-options.util";
 
 @ApiTags("users")
 @Controller("users")
@@ -155,7 +160,7 @@ export class UsersController {
   }
 
   //activar cotizacion
-  @Patch("quotations/:id/activate")
+  @Patch("quotations/activate/:id")
   @HttpCode(200)
   @ApiOperation({ summary: "Activar una cotización (pasar a PENDIENTE_PAGO)" })
   @ApiResponse({ status: 200, type: MessageResponseDto })
@@ -173,8 +178,33 @@ export class UsersController {
     };
   }
 
+  @Patch("quotations/pay/:id/")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Marcar cotización como pagada (pasar a PAGADO)" })
+  @ApiConsumes("multipart/form-data")
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, type: ErrorResponseDto })
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [{ name: "paymentReceiptPath", maxCount: 1 }],
+      multerOptionsMemory(2)
+    )
+  )
+  async markQuotationAsPaid(
+    @Param("id") id: number,
+    @UploadedFiles() files: { paymentReceiptPath?: Express.Multer.File[] }
+  ): Promise<MessageResponseDto> {
+    await this.usersService.markQuotationAsPaid(id, files);
+
+    return {
+      message: "Cotización marcada como pagada correctamente",
+      statusCode: 200,
+      success: true,
+    };
+  }
+
   //cancelar cotizacion
-  @Patch("quotations/:id/cancel")
+  @Patch("quotations/cancel/:id")
   @HttpCode(200)
   @ApiOperation({ summary: "Cancelar una cotización" })
   @ApiResponse({ status: 200, type: MessageResponseDto })

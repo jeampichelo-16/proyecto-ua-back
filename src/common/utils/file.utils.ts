@@ -32,6 +32,7 @@ export function validateNamedPDFUploads(
       }
     }
   } catch (error) {
+    console.log(error)
     handleServiceError(error, "❌ Falló la validación de archivos PDF.");
   }
 }

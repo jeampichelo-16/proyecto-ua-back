@@ -5,6 +5,7 @@ import { ClientsModule } from "../clients/clients.module";
 import { QuotationsModule } from "../quotations/quotations.module";
 import { OperatorsModule } from "../operators/operators.module";
 import { PlatformsModule } from "../platforms/platforms.module";
+import { FirebaseModule } from "../firebase/firebase.module";
 
 @Module({
   providers: [UsersService],
@@ -14,6 +15,7 @@ import { PlatformsModule } from "../platforms/platforms.module";
     ClientsModule,
     QuotationsModule,
     PlatformsModule,
+    FirebaseModule
   ],
   controllers: [UsersController],
 })

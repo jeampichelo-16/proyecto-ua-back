@@ -30,6 +30,8 @@ import { ActiveMachineResponseDto } from "../platforms/dto/active-machine-respon
 import { PlatformsService } from "../platforms/platforms.service";
 import { OperatorsService } from "../operators/operators.service";
 import { ActivateQuotationDto } from "../quotations/dto/active-quotation.dto";
+import { validateNamedPDFUploads } from "src/common/utils/file.utils";
+import { FirebaseService } from "../firebase/firebase.service";
 
 @Injectable()
 export class UsersService {
@@ -39,7 +41,8 @@ export class UsersService {
     private readonly quotationsService: QuotationsService,
     @Inject(forwardRef(() => OperatorsService)) // ✅
     private readonly operatorService: OperatorsService,
-    private readonly platformsService: PlatformsService
+    private readonly platformsService: PlatformsService,
+    private readonly firebaseService: FirebaseService
   ) {}
 
   // AUTH - LOGIN / REESTABLECER CONTRASEÑA - ADMIN / LISTAR EMPLEADOS PAGINADOS / CREAR EMPLEADO
@@ -371,7 +374,6 @@ export class UsersService {
   }
 
   //ADMIN - CREAR OPERARIO
-  //LISTO
   async createOperatorUser(dto: CreateOperatorDto) {
     try {
       const existingUser = await this.prisma.user.findFirst({
@@ -708,6 +710,63 @@ export class UsersService {
       );
     } catch (error) {
       handleServiceError(error, "Error al actualizar datos de la cotización");
+    }
+  }
+
+  private async generateUniqueFirebaseFilename({
+    prefix,
+    entityId,
+    extension = "pdf",
+  }: {
+    prefix: string; // ej. 'quotations'
+    entityId: number | string;
+    extension?: string;
+  }): Promise<string> {
+    const timestamp = Date.now();
+    return `${prefix}/${entityId}/payment-receipt-${timestamp}.${extension}`;
+  }
+
+  //QUOTATIONS - COMPLETAR COTIZACION (PAGADO)
+  async markQuotationAsPaid(
+    quotationId: number,
+    files: {
+      paymentReceiptPath?: Express.Multer.File[];
+    }
+  ): Promise<void> {
+    try {
+      validateNamedPDFUploads(files, ["paymentReceiptPath"]);
+
+      const quotation = await this.quotationsService.findByIdQuotation(
+        quotationId
+      );
+
+      if (!quotation) throwNotFound("Cotización no encontrada");
+
+      if (quotation.status !== QuotationStatus.PENDIENTE_PAGO) {
+        throwBadRequest("La cotización no está en estado PENDIENTE_PAGO");
+      }
+
+      const paymentReceiptFile = files.paymentReceiptPath?.[0];
+
+      if (!paymentReceiptFile) {
+        throwBadRequest("El recibo de pago es obligatorio");
+      }
+
+      const paymentReceiptPath = await this.generateUniqueFirebaseFilename({
+        prefix: "quotations",
+        entityId: quotationId,
+        extension: "pdf",
+      });
+
+        const paymentReceiptUrl = await this.firebaseService.uploadBuffer(
+          paymentReceiptFile.buffer,
+          paymentReceiptPath,
+          paymentReceiptFile.mimetype
+      );
+
+      await this.quotationsService.markQuotationAsPaid(quotationId, paymentReceiptUrl);
+    } catch (error) {
+      handleServiceError(error, "Error al marcar la cotización como pagada");
     }
   }
 

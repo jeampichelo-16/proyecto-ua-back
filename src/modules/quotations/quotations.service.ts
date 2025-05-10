@@ -387,6 +387,50 @@ export class QuotationsService {
     }
   }
 
+  async markQuotationAsPaid(
+    quotationId: number,
+    paymentReceiptPath: string
+  ): Promise<void> {
+    try {
+      const quotation = await this.prisma.quotation.findUnique({
+        where: { id: quotationId },
+      });
+
+      if (!quotation) {
+        throwNotFound("Cotización no encontrada");
+      }
+
+      if (quotation.status !== QuotationStatus.PENDIENTE_PAGO) {
+        throwBadRequest("La cotización no está en estado PENDIENTE_PAGO");
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.quotation.update({
+          where: { id: quotationId },
+          data: {
+            status: QuotationStatus.PAGADO,
+            paymentReceiptPath,
+            statusToPagadoAt: new Date(),
+          },
+        });
+
+        await tx.platform.update({
+          where: { id: quotation.platformId },
+          data: { status: PlatformStatus.EN_TRABAJO },
+        });
+
+        await tx.operator.updateMany({
+          where: quotation.operatorId
+            ? { id: quotation.operatorId }
+            : undefined,
+          data: { operatorStatus: OperatorStatus.EN_TRABAJO },
+        });
+      });
+    } catch (error) {
+      handleServiceError(error, "Error al marcar la cotización como pagada");
+    }
+  }
+
   async cancelQuotation(quotationId: number): Promise<void> {
     try {
       const quotation = await this.prisma.quotation.findUnique({
@@ -406,7 +450,15 @@ export class QuotationsService {
         );
       }
 
+      //ELIMINAR ARCHIVO FIREBASE
+
       await this.prisma.$transaction(async (tx) => {
+        await this.firebaseService.deleteFileFromUrl(quotation.quotationPath);
+
+        await this.firebaseService.deleteFileFromUrl(
+          quotation.paymentReceiptPath ?? ""
+        );
+
         await tx.quotation.update({
           where: { id: quotationId },
           data: {
