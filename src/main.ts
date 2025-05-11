@@ -9,7 +9,6 @@ import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { BadRequestException, ValidationPipe } from "@nestjs/common";
 import { validateMailTemplatesOnStartup } from "./config/validate-mail-template";
 import { NestExpressApplication } from "@nestjs/platform-express";
-import * as path from "path";
 import { MulterExceptionFilter } from "./common/utils/multer-exception.filter";
 
 async function bootstrap() {
@@ -20,14 +19,10 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
-  app.useStaticAssets(path.join(__dirname, "..", "uploads"), {
-    prefix: "/uploads/",
-  });
-
-  app.set("trust proxy", 1);
+  //app.set("trust proxy", 1);
 
   app.enableCors({
-    origin: ["http://localhost:5173", 'https://mansercomioautonoma.online',],
+    origin: ["http://localhost:5173", "https://mansercomioautonoma.online"],
     credentials: true,
   });
 
