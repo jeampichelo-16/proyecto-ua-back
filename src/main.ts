@@ -27,7 +27,7 @@ async function bootstrap() {
   app.set("trust proxy", 1);
 
   app.enableCors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", 'https://mansercomioautonoma.online',],
     credentials: true,
   });
 
