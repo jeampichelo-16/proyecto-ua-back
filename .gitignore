@@ -60,6 +60,5 @@ src/config/firebase/credentials.json
 # PERO no ignores el archivo .gitkeep dentro de firebase/
 !src/config/firebase/.gitkeep
 
-# Archivo dev.db
-prisma/dev.db
+# Ignorar todo en prisma
 prisma/migrations

@@ -1,16 +1,110 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   Int        @id @default(autoincrement())
+  email                String     @unique
+  username             String     @unique
+  firstName            String
+  lastName             String
+  phone                String?
+  dni                  String     @unique
+  password             String
+  refreshToken         String?
+  role                 Role       @default(EMPLEADO)
+  isEmailVerified      Boolean    @default(false)
+  isActive             Boolean    @default(true)
+  lastLoginAt          DateTime?
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  operario             Operator[]
+}
+
+model Operator {
+  id                         Int            @id @default(autoincrement())
+  userId                     Int
+  operatorStatus             OperatorStatus @default(ACTIVO)
+  emoPDFPath                 String
+  operativityCertificatePath String
+  costService                Float
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
+  user                       User           @relation(fields: [userId], references: [id])
+  quotations                 Quotation[]
+
+  @@index([userId], map: "Operator_userId_fkey")
+}
+
+model Client {
+  id          Int         @id @default(autoincrement())
+  name        String
+  email       String?     @unique
+  phone       String?
+  ruc         String?     @unique
+  companyName String?
+  address     String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  quotations  Quotation[]
+}
+
+model Quotation {
+  id                    Int             @id @default(autoincrement())
+  clientId              Int
+  platformId            Int
+  operatorId            Int?
+  description           String
+  amount                Float
+  deliveryAmount        Float?
+  subtotal              Float
+  igv                   Float
+  total                 Float
+  typeCurrency          String
+  isNeedOperator        Boolean
+  status                QuotationStatus @default(PENDIENTE_DATOS)
+  quotationPath         String
+  startDate             DateTime
+  endDate               DateTime
+  paymentReceiptPath    String?
+  rejectionReason       String?
+  createdAt             DateTime        @default(now())
+  statusToPendingPagoAt DateTime?
+  statusToPagadoAt      DateTime?
+  statusToRechazadoAt   DateTime?
+  updatedAt             DateTime        @updatedAt
+  client                Client          @relation(fields: [clientId], references: [id])
+  operator              Operator?       @relation(fields: [operatorId], references: [id])
+  platform              Platform        @relation(fields: [platformId], references: [id])
+
+  @@index([clientId], map: "Quotation_clientId_fkey")
+  @@index([operatorId], map: "Quotation_operatorId_fkey")
+  @@index([platformId], map: "Quotation_platformId_fkey")
+}
+
+model Platform {
+  id                         Int            @id @default(autoincrement())
+  serial                     String         @unique
+  brand                      String
+  model                      String
+  typePlatform               PlatformType   @default(ELECTRICO)
+  price                      Float
+  status                     PlatformStatus @default(ACTIVO)
+  horometerMaintenance       Int            @default(200)
+  description                String?
+  operativityCertificatePath String
+  ownershipDocumentPath      String
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
+  quotations                 Quotation[]
 }
 
 enum Role {
@@ -46,108 +140,4 @@ enum PlatformStatus {
   EN_COTIZACION
   EN_MANTENIMIENTO
   INACTIVO
-}
-
-model User {
-  id                   Int       @id @default(autoincrement())
-  email                String    @unique
-  username             String    @unique
-  firstName            String
-  lastName             String
-  phone                String?
-  dni                  String    @unique
-  password             String
-  refreshToken         String?
-  role                 Role      @default(EMPLEADO)
-  isEmailVerified      Boolean   @default(false)
-  isActive             Boolean   @default(true)
-  lastLoginAt          DateTime?
-  resetPasswordToken   String?
-  resetPasswordExpires DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  operario Operator[]
-}
-
-model Operator {
-  id                         Int            @id @default(autoincrement())
-  userId                     Int
-  operatorStatus             OperatorStatus @default(ACTIVO)
-  emoPDFPath                 String
-  operativityCertificatePath String
-  costService                Float
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user       User        @relation(fields: [userId], references: [id])
-  quotations Quotation[]
-}
-
-model Client {
-  id          Int     @id @default(autoincrement())
-  name        String
-  email       String? @unique
-  phone       String?
-  ruc         String? @unique
-  companyName String?
-  address     String?
-  isActive    Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  quotations Quotation[]
-}
-
-model Quotation {
-  id                 Int             @id @default(autoincrement())
-  clientId           Int
-  platformId         Int
-  operatorId         Int?
-  description        String
-  amount             Float
-  deliveryAmount     Float?
-  subtotal           Float
-  igv                Float
-  total              Float
-  typeCurrency       String
-  isNeedOperator     Boolean
-  status             QuotationStatus @default(PENDIENTE_DATOS)
-  quotationPath      String
-  startDate          DateTime
-  endDate            DateTime
-  paymentReceiptPath String?
-  rejectionReason    String?
-
-  createdAt             DateTime  @default(now())
-  statusToPendingPagoAt DateTime?
-  statusToPagadoAt      DateTime?
-  statusToRechazadoAt   DateTime?
-  updatedAt             DateTime  @updatedAt
-
-  client   Client    @relation(fields: [clientId], references: [id])
-  platform Platform  @relation(fields: [platformId], references: [id])
-  operator Operator? @relation(fields: [operatorId], references: [id])
-}
-
-model Platform {
-  id                         Int            @id @default(autoincrement())
-  serial                     String         @unique
-  brand                      String
-  model                      String
-  typePlatform               PlatformType   @default(ELECTRICO)
-  price                      Float
-  status                     PlatformStatus @default(ACTIVO)
-  horometerMaintenance       Int            @default(200)
-  description                String?
-  operativityCertificatePath String
-  ownershipDocumentPath      String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  quotations Quotation[] @relation
 }
