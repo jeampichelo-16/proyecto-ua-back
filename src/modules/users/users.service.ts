@@ -624,7 +624,7 @@ export class UsersService {
 
       return {
         id: quotation.id,
-        description: quotation.description,
+        description: quotation.description ?? "",
         amount: quotation.amount,
         deliveryAmount: quotation.deliveryAmount,
         subtotal: quotation.subtotal,
