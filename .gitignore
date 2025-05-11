@@ -55,5 +55,7 @@ pids
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-#credentials.js path
+# Ignorar todo el contenido dentro de firebase/
 src/config/firebase/credentials.json
+# PERO no ignores el archivo .gitkeep dentro de firebase/
+!src/config/firebase/.gitkeep
