@@ -16,12 +16,12 @@ model User {
   phone                String?
   dni                  String     @unique
   password             String
-  refreshToken         String?
+  refreshToken         String?    @db.Text
   role                 Role       @default(EMPLEADO)
   isEmailVerified      Boolean    @default(false)
   isActive             Boolean    @default(true)
   lastLoginAt          DateTime?
-  resetPasswordToken   String?
+  resetPasswordToken   String?    @db.Text
   resetPasswordExpires DateTime?
   createdAt            DateTime   @default(now())
   updatedAt            DateTime   @updatedAt
@@ -32,7 +32,7 @@ model Operator {
   id                         Int            @id @default(autoincrement())
   userId                     Int
   operatorStatus             OperatorStatus @default(ACTIVO)
-  emoPDFPath                 String
+  emoPDFPath                 String         @db.Text
   operativityCertificatePath String
   costService                Float
   createdAt                  DateTime       @default(now())
@@ -62,7 +62,7 @@ model Quotation {
   clientId              Int
   platformId            Int
   operatorId            Int?
-  description           String
+  description           String?         @db.Text
   amount                Float
   deliveryAmount        Float?
   subtotal              Float
@@ -71,11 +71,11 @@ model Quotation {
   typeCurrency          String
   isNeedOperator        Boolean
   status                QuotationStatus @default(PENDIENTE_DATOS)
-  quotationPath         String
+  quotationPath         String          @db.Text
   startDate             DateTime
   endDate               DateTime
-  paymentReceiptPath    String?
-  rejectionReason       String?
+  paymentReceiptPath    String?         @db.Text
+  rejectionReason       String?         @db.Text
   createdAt             DateTime        @default(now())
   statusToPendingPagoAt DateTime?
   statusToPagadoAt      DateTime?
@@ -100,8 +100,8 @@ model Platform {
   status                     PlatformStatus @default(ACTIVO)
   horometerMaintenance       Int            @default(200)
   description                String?
-  operativityCertificatePath String
-  ownershipDocumentPath      String
+  operativityCertificatePath String         @db.Text
+  ownershipDocumentPath      String         @db.Text
   createdAt                  DateTime       @default(now())
   updatedAt                  DateTime       @updatedAt
   quotations                 Quotation[]
