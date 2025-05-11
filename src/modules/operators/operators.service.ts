@@ -109,6 +109,7 @@ export class OperatorsService {
     }
   }
 
+  /*
   //ADMIN - ELIMINAR OPERARIO
   async deleteOperator(operatorId: number): Promise<void> {
     try {
@@ -129,6 +130,7 @@ export class OperatorsService {
       handleServiceError(error, "Error al eliminar el operario");
     }
   }
+  */
 
   //ADMIN - OBTENER OPERARIOS ACTIVOS
   async getAllActiveOperators() {

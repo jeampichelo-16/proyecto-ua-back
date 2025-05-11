@@ -256,6 +256,7 @@ export class AdminController {
     };
   }
 
+  /*
   @Delete("operators/:id")
   @HttpCode(200)
   @ApiOperation({ summary: "Eliminar un operario por ID" })
@@ -269,8 +270,8 @@ export class AdminController {
       statusCode: 200,
       success: true,
     };
-  }
-
+  }*/
+ 
   //maquinarias
   @Post("machines")
   @HttpCode(201)
@@ -376,6 +377,7 @@ export class AdminController {
     };
   }
 
+  /*
   @Delete("machines/:serial")
   @HttpCode(200)
   @ApiOperation({ summary: "Eliminar una maquinaria por serial" })
@@ -390,4 +392,5 @@ export class AdminController {
       success: true,
     };
   }
+  */
 }

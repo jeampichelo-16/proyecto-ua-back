@@ -506,6 +506,7 @@ export class AdminService {
     return profileOperator;
   }
 
+  /*
   //LISTO
   async deleteOperator(operatorId: number) {
     const operator = await this.operatorService.getById(operatorId);
@@ -521,7 +522,8 @@ export class AdminService {
 
     await this.operatorService.deleteOperator(operatorId);
   }
-
+  */
+ 
   //PLATAFORMAS - MAQUINARIA
   //LISTO
   async createMachineWithFiles(
@@ -757,6 +759,7 @@ export class AdminService {
     }
   }
 
+  /*
   //LISTO
   async deleteMachine(machineSerial: string) {
     try {
@@ -776,4 +779,5 @@ export class AdminService {
       handleServiceError(error, "Error al eliminar la maquinaria");
     }
   }
+  */
 }

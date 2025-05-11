@@ -167,6 +167,7 @@ export class PlatformsService {
     }
   }
 
+  /*
   //ELIMINAR PLATAFORMA
   async deleteMachine(serial: string): Promise<void> {
     try {
@@ -182,6 +183,7 @@ export class PlatformsService {
       handleServiceError(error, "Error al eliminar la plataforma.");
     }
   }
+  */
 
   //OBTENER PLATAFORMAS ACTIVAS
   async getAllActiveMachines() {
