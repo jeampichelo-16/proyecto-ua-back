@@ -4,14 +4,14 @@ export function setAuthCookies(res: Response, tokens: { accessToken: string; ref
   res.cookie('access_token', tokens.accessToken, {
     httpOnly: true,
     secure: true,
-    sameSite: 'strict',
+    sameSite: 'none',
     maxAge: 15 * 60 * 1000, // 15 minutos
   });
 
   res.cookie('refresh_token', tokens.refreshToken, {
     httpOnly: true,
     secure: true,
-    sameSite: 'strict',
+    sameSite: 'none',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
   });
 }
@@ -20,13 +20,13 @@ export function clearAuthCookies(res: Response) {
   res.clearCookie('access_token', {
     httpOnly: true,
     secure: true,
-    sameSite: 'strict',
+    sameSite: 'none',
   });
 
   res.clearCookie('refresh_token', {
     httpOnly: true,
     secure: true,
-    sameSite: 'strict',
+    sameSite: 'none',
   });
 }
     

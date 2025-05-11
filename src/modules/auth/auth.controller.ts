@@ -4,13 +4,11 @@ import {
   Body,
   Res,
   Req,
-  Get,
   HttpCode,
   UseGuards,
 } from "@nestjs/common";
 import { Response, Request } from "express";
 import { AuthService } from "./auth.service";
-import { setAuthCookies } from "src/common/utils/cookies";
 import { SkipThrottle } from "@nestjs/throttler";
 
 // DTOs del módulo auth
