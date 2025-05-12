@@ -25,15 +25,13 @@ import { UpdateMachineDto } from "../platforms/dto/update-machine.dto";
 import { PlatformStatus } from "src/common/enum/platform-status.enum";
 import { PlatformType } from "src/common/enum/platform-type.enum";
 import { MachineResponseDto } from "../platforms/dto/machine-response.dto";
-import {
-  DashboardSummaryDto,
-  QuotationRatePoint,
-  ResponseTimePoint,
-} from "./dto/dashboard-summary.dto";
-import { toZonedTime } from "date-fns-tz";
-import { subDays } from "date-fns";
+import { subDays, format, differenceInSeconds } from "date-fns";
 import { PrismaService } from "../prisma/prisma.service";
 import { QuotationStatus } from "src/common/enum/quotation-status.enum";
+import {
+  QuotationMetricsDto,
+  TimeSeriesPoint,
+} from "./dto/quotation-metrics.dto";
 
 @Injectable()
 export class AdminService {
@@ -46,118 +44,137 @@ export class AdminService {
     private readonly prisma: PrismaService
   ) {}
 
-  async getClientsSummary() {
-    /*
-    const TIMEZONE = "America/Lima";
-    const limaNow = toZonedTime(new Date(), TIMEZONE);
-    const startDate = subDays(limaNow, 30);
+  async getDashboardSummary(): Promise<QuotationMetricsDto> {
+    const [quotations, platforms, operators] = await Promise.all([
+      this.prisma.quotation.findMany({
+        select: {
+          createdAt: true,
+          status: true,
+          total: true,
+          statusToPendingPagoAt: true,
+          statusToPagadoAt: true,
+        },
+      }),
+      this.prisma.platform.findMany({ select: { status: true } }),
+      this.prisma.operator.findMany({ select: { operatorStatus: true } }),
+    ]);
 
-    const [totalClients, totalQuotations, activeOperators, totalApproved] =
-      await Promise.all([
-        this.prisma.client.count(),
-        this.prisma.quotation.count(),
-        this.prisma.operator.count({ where: { operatorStatus: "ACTIVO" } }),
-        this.prisma.quotation.count({
-          where: { status: QuotationStatus.APROBADO },
-        }),
-      ]);
+    const totalPaidAmount = quotations
+      .filter((q) => q.status === QuotationStatus.PAGADO)
+      .reduce((sum, q) => sum + q.total, 0);
 
-    const quotations = await this.prisma.quotation.findMany({
-      where: { createdAt: { gte: startDate } },
-      select: {
-        createdAt: true,
-        updatedAt: true,
-        status: true,
-      },
-    });
-
-    const grouped = new Map<
+    const groupedByDate: Record<
       string,
-      { total: number; processed: number; responseTimes: number[] }
-    >();
+      { total: number; paid: number; responseTimes: number[] }
+    > = {};
 
     for (const q of quotations) {
-      const date = q.createdAt.toISOString().split("T")[0];
-      const record = grouped.get(date) ?? {
-        total: 0,
-        processed: 0,
-        responseTimes: [],
-      };
+      const dateKey = format(q.createdAt, "yyyy-MM-dd");
+      groupedByDate[dateKey] ||= { total: 0, paid: 0, responseTimes: [] };
 
-      record.total += 1;
+      groupedByDate[dateKey].total++;
 
-      if (q.status !== QuotationStatus.PENDIENTE) {
-        record.processed += 1;
-        const diffHrs =
-          (q.updatedAt.getTime() - q.createdAt.getTime()) / (1000 * 60 * 60);
-        record.responseTimes.push(diffHrs);
+      // ✅ Contar pagadas solo si la fecha de pago coincide con la fecha de creación
+      if (
+        q.status === QuotationStatus.PAGADO &&
+        q.statusToPagadoAt &&
+        format(q.statusToPagadoAt, "yyyy-MM-dd") === dateKey
+      ) {
+        groupedByDate[dateKey].paid++;
       }
 
-      grouped.set(date, record);
+      // ⏱ Tiempo de respuesta solo si llegó a PENDIENTE_PAGO
+      if (q.statusToPendingPagoAt) {
+        const seconds = differenceInSeconds(
+          q.statusToPendingPagoAt,
+          q.createdAt
+        );
+        const minutes = parseFloat((seconds / 60).toFixed(2));
+        groupedByDate[dateKey].responseTimes.push(minutes);
+      }
     }
 
-    let rateSum = 0;
-    let rateCount = 0;
-    let responseSum = 0;
-    let responseCount = 0;
+    const allProcessedRateSeries: TimeSeriesPoint[] = [];
+    const allResponseTimeSeries: TimeSeriesPoint[] = [];
 
-    const quotationRateSeries: QuotationRatePoint[] = [];
-    const responseTimeSeries: ResponseTimePoint[] = [];
+    for (const [date, entry] of Object.entries(groupedByDate).sort()) {
+      const processedRate = entry.total ? entry.paid / entry.total : 0;
+      const avgMinutes =
+        entry.responseTimes.length > 0
+          ? entry.responseTimes.reduce((a, b) => a + b, 0) /
+            entry.responseTimes.length
+          : 0;
 
-    for (const [
-      date,
-      { total, processed, responseTimes },
-    ] of grouped.entries()) {
-      const rate = total > 0 ? (processed / total) * 100 : 0;
-      quotationRateSeries.push({
-        date,
-        total,
-        processed,
-        rate: +rate.toFixed(2),
+      allProcessedRateSeries.push({
+        label: date,
+        value: parseFloat((processedRate * 100).toFixed(2)),
       });
 
-      rateSum += rate;
-      rateCount++;
-
-      const avgResponse = responseTimes.length
-        ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
-        : 0;
-
-      responseTimeSeries.push({
-        date,
-        responseHours: +avgResponse.toFixed(2),
+      allResponseTimeSeries.push({
+        label: date,
+        value: parseFloat(avgMinutes.toFixed(2)),
       });
-
-      responseSum += avgResponse;
-      if (avgResponse > 0) responseCount++;
     }
 
-    const quotationConversionRate =
-      totalQuotations > 0
-        ? +((totalApproved / totalQuotations) * 100).toFixed(2)
-        : 0;
+    const avgProcessedRate =
+      allProcessedRateSeries.reduce((sum, p) => sum + p.value, 0) /
+      (allProcessedRateSeries.length || 1);
 
-    const avgResponseTimeInHours =
-      responseCount > 0 ? +(responseSum / responseCount).toFixed(2) : 0;
+    const avgResponseTime =
+      allResponseTimeSeries.reduce((sum, p) => sum + p.value, 0) /
+      (allResponseTimeSeries.length || 1);
 
-    const quotationRateAvg =
-      rateCount > 0 ? +(rateSum / rateCount).toFixed(2) : 0;
+    const last30Days = (series: TimeSeriesPoint[]) => {
+      const cutoff = subDays(new Date(), 30);
+      return series.filter((p) => new Date(p.label) >= cutoff);
+    };
+
+    const countByStatus = <T extends { [key: string]: any }>(
+      items: T[],
+      statusKey: keyof T
+    ) => {
+      const map: Record<string, number> = {};
+      for (const item of items) {
+        const key = item[statusKey] as string;
+        map[key] = (map[key] || 0) + 1;
+      }
+      return Object.entries(map).map(([status, count]) => ({ status, count }));
+    };
 
     return {
-      totalClients,
-      totalQuotations,
-      activeOperators,
-      quotationRateAvg,
-      avgResponseTimeInHours,
-      quotationConversionRate, // ✅ Incluido en respuesta
-      quotationRateSeries: quotationRateSeries.sort((a, b) =>
-        a.date.localeCompare(b.date)
-      ),
-      responseTimeSeries: responseTimeSeries.sort((a, b) =>
-        a.date.localeCompare(b.date)
-      ),
+      averageProcessedRate: {
+        value: parseFloat(avgProcessedRate.toFixed(2)),
+        description:
+          "Promedio global del porcentaje de cotizaciones pagadas el mismo día en que fueron creadas",
+      },
+      averageResponseTime: {
+        value: parseFloat(avgResponseTime.toFixed(2)),
+        description:
+          "Promedio de minutos entre la creación y el estado PENDIENTE_PAGO",
+      },
+      processedRateSeriesDescription:
+        "Porcentaje diario de cotizaciones pagadas respecto al total creado ese día",
+      processedRateSeries: last30Days(allProcessedRateSeries),
+      responseTimeSeriesDescription:
+        "Tiempo promedio diario (en minutos) hasta llegar a estado PENDIENTE_PAGO",
+      responseTimeSeries: last30Days(allResponseTimeSeries),
+      totalPaidAmount: {
+        value: parseFloat(totalPaidAmount.toFixed(2)),
+        description: "Suma total de montos de cotizaciones pagadas",
+      },
+      platformStatusDistribution: {
+        description: "Cantidad de plataformas por estado actual",
+        data: countByStatus(platforms, "status"),
+      },
+      operatorStatusDistribution: {
+        description: "Cantidad de operarios por estado actual",
+        data: countByStatus(operators, "operatorStatus"),
+      },
+      quotationStatusDistribution: {
+        description: "Cantidad de cotizaciones por estado actual",
+        data: countByStatus(quotations, "status"),
+      },
     };
-    */
   }
 
   //EMPLEADOS
@@ -523,7 +540,7 @@ export class AdminService {
     await this.operatorService.deleteOperator(operatorId);
   }
   */
- 
+
   //PLATAFORMAS - MAQUINARIA
   //LISTO
   async createMachineWithFiles(

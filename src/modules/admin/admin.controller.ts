@@ -53,9 +53,9 @@ export class AdminController {
   @ApiResponse({ status: 200, type: MessageResponseDto })
   @ApiResponse({ status: 401, type: ErrorResponseDto })
   async getClientsSummary() {
-    const dataSummary = await this.adminService.getClientsSummary();
+    const dataSummary = await this.adminService.getDashboardSummary();
     return {
-      message: "Resumen de clientes obtenido correctamente",
+      message: "Resumen del panel de administración obtenido correctamente",
       statusCode: 200,
       success: true,
       data: dataSummary,
@@ -271,7 +271,7 @@ export class AdminController {
       success: true,
     };
   }*/
- 
+
   //maquinarias
   @Post("machines")
   @HttpCode(201)
