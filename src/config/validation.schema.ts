@@ -45,5 +45,6 @@ export const validationSchema = Joi.object({
   EMPLOYEE_LAST_NAME: Joi.string().required(),
 
   //Firebase
-  FIREBASE_STORAGE_BUCKET: Joi.string().required(),
+  FIREBASE_STORAGE_BUCKET_PROD: Joi.string().required(),
+  FIREBASE_STORAGE_BUCKET_DEV: Joi.string().required(),
 });

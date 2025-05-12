@@ -15,8 +15,13 @@ export class FirebaseService implements OnModuleInit {
       __dirname,
       "../../config/firebase/credentials.json"
     );
+
+    const env = this.configService.get<string>("NODE_ENV");
+
     const storageBucket = this.configService.get<string>(
-      "FIREBASE_STORAGE_BUCKET"
+      env === "development"
+        ? "FIREBASE_STORAGE_BUCKET_DEV"
+        : "FIREBASE_STORAGE_BUCKET_PROD"
     );
 
     if (!storageBucket) {
