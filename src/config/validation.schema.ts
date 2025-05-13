@@ -23,8 +23,7 @@ export const validationSchema = Joi.object({
   TIMEOUT_VERIFICATION_TOKEN_EMAIL: Joi.string().default("1d"),
 
   // 📫 Correo
-  MAIL_USER: Joi.string().email().required(),
-  MAIL_PASS: Joi.string().required(),
+  RESEND_API_KEY: Joi.string().required(),
 
   // 🌍 URLs
   APP_URL_BACKEND: Joi.string().uri().required(),

@@ -38,6 +38,7 @@ import { multerOptionsMemory } from "src/common/utils/multer-options.util";
 import { CreateMachineDto } from "../platforms/dto/create-platform.dto";
 import { UpdateMachineDto } from "../platforms/dto/update-machine.dto";
 import { MachineResponseDto } from "../platforms/dto/machine-response.dto";
+import { MailService } from "../mail/mail.service";
 
 @SkipThrottle()
 @ApiTags("admin")
@@ -46,7 +47,10 @@ import { MachineResponseDto } from "../platforms/dto/machine-response.dto";
 @OnlyRoles(Role.ADMIN)
 @Controller("admin")
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly mailService: MailService
+  ) {}
 
   @Get("dashboard")
   @ApiOperation({ summary: "Vista del panel de administración" })
@@ -376,6 +380,13 @@ export class AdminController {
       data: machinesPaginated,
     };
   }
+
+  /*
+  @Get("test-email")
+  async testEmail() {
+    await this.mailService.sendTestEmail();
+    return { message: "Correo enviado (ver consola)" };
+  }*/
 
   /*
   @Delete("machines/:serial")

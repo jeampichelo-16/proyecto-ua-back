@@ -1,9 +1,10 @@
-import { Injectable, OnModuleInit } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import * as nodemailer from "nodemailer";
-import hbs from "nodemailer-express-handlebars";
-import { join } from "path";
+import { Resend } from "resend";
 import { handleServiceError } from "src/common/utils/handle-error.util";
+import { readFileSync } from "fs";
+import { compile } from "handlebars";
+import { join } from "path";
 
 interface TemplatedMail {
   to: string;
@@ -14,39 +15,27 @@ interface TemplatedMail {
 }
 
 @Injectable()
-export class MailService implements OnModuleInit {
-  private transporter: nodemailer.Transporter;
+export class MailService {
+  private resend: Resend;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) {
+    this.resend = new Resend(this.configService.get<string>("RESEND_API_KEY"));
+    console.log("Resend API Key:", this.configService.get<string>("RESEND_API_KEY"));
 
-  onModuleInit() {
-    const templatesPath = join(__dirname, "templates");
+  }
 
-    this.transporter = nodemailer.createTransport({
-      service: "gmail",
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: {
-        user: this.configService.get("MAIL_USER"),
-        pass: this.configService.get("MAIL_PASS"),
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-    });
-
-    this.transporter.use(
-      "compile",
-      hbs({
-        viewEngine: {
-          partialsDir: templatesPath,
-          defaultLayout: false,
-        },
-        viewPath: templatesPath,
-        extName: ".hbs",
-      })
+  private renderTemplate(
+    templateName: string,
+    context: Record<string, any>
+  ): string {
+    const filePath = join(
+      __dirname,
+      "../../modules/mail/templates",
+      `${templateName}.hbs`
     );
+    const templateStr = readFileSync(filePath, "utf8");
+    const template = compile(templateStr);
+    return template(context);
   }
 
   async sendTemplateEmail(
@@ -54,19 +43,18 @@ export class MailService implements OnModuleInit {
     subject: string,
     template: string,
     context: Record<string, any>
-  ): Promise<void> {
+  ) {
     try {
-      const mailOptions: TemplatedMail = {
-        from: '"Tu App" <no-reply@tuapp.com>',
+      const html = this.renderTemplate(template, context);
+
+      await this.resend.emails.send({
+        from: "no-reply@mansercomioautonoma.online",
         to,
         subject,
-        template,
-        context,
-      };
-
-      await this.transporter.sendMail(mailOptions as any);
+        html,
+      });
     } catch (error) {
-      handleServiceError(error, "Error al enviar el correo electrónico");
+      handleServiceError(error, "Error al enviar correo con Resend");
     }
   }
 }

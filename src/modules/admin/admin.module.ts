@@ -18,8 +18,9 @@ import { PrismaModule } from "../prisma/prisma.module";
     MailModule,
     OperatorsModule,
     FirebaseModule,
+    MailModule,
     PlatformsModule,
-    PrismaModule  
+    PrismaModule,
   ],
 })
 export class AdminModule {}
