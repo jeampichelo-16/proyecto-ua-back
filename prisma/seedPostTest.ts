@@ -1,6 +1,4 @@
-// prisma/seedPostTest.ts
-import { PrismaClient } from "@prisma/client";
-import { faker } from "@faker-js/faker";
+import { PrismaClient, PlatformStatus, OperatorStatus } from "@prisma/client";
 import { addMinutes, addDays } from "date-fns";
 
 const prisma = new PrismaClient();
@@ -13,100 +11,138 @@ enum QuotationStatus {
 }
 
 async function main() {
-  const MAY_2025 = new Date("2025-05-01");
+  const TOTAL = 190;
+  const fechaInicio = new Date("2025-05-01");
+  const PROCESADAS = Math.floor(TOTAL * 0.8); // 152 procesadas (≈ 80%)
 
-  const client = await prisma.client.create({
-    data: {
-      name: "Cliente PostTest",
-      email: faker.internet.email(),
-      ruc: faker.string.numeric(11),
-    },
-  });
+  // Crear 5 clientes
+  const clients = await Promise.all(
+    Array.from({ length: 5 }, (_, i) =>
+      prisma.client.create({
+        data: {
+          name: `Cliente ${i + 1}`,
+          email: `cliente${i + 1}@test.com`,
+          ruc: `20${i + 1}23456789`,
+        },
+      })
+    )
+  );
 
-  const user = await prisma.user.create({
-    data: {
-      email: faker.internet.email(),
-      username: faker.internet.userName(),
-      firstName: faker.person.firstName(),
-      lastName: faker.person.lastName(),
-      dni: faker.string.numeric(8),
-      password: "hashed-password",
-      role: "OPERARIO",
-    },
-  });
+  // Crear 5 usuarios + operadores
+  const operators = await Promise.all(
+    Array.from({ length: 5 }, async (_, i) => {
+      const user = await prisma.user.create({
+        data: {
+          email: `operario${i + 1}@test.com`,
+          username: `operario${i + 1}`,
+          firstName: `Operario`,
+          lastName: `#${i + 1}`,
+          dni: `1234567${i}`,
+          password: "hashed-password",
+          role: "OPERARIO",
+        },
+      });
 
-  const operator = await prisma.operator.create({
-    data: {
-      userId: user.id,
-      emoPDFPath: faker.system.filePath(),
-      operativityCertificatePath: faker.system.filePath(),
-      costService: faker.number.float({ min: 100, max: 300 }),
-    },
-  });
+      return prisma.operator.create({
+        data: {
+          userId: user.id,
+          emoPDFPath: `emo_${i + 1}.pdf`,
+          operativityCertificatePath: `cert_op_${i + 1}.pdf`,
+          costService: 200 + i * 10,
+          operatorStatus: i % 2 === 0 ? "ACTIVO" : "EN_TRABAJO",
+        },
+      });
+    })
+  );
 
-  const platform = await prisma.platform.create({
-    data: {
-      serial: faker.string.uuid(),
-      brand: faker.vehicle.manufacturer(),
-      model: faker.vehicle.model(),
-      price: faker.number.float({ min: 500, max: 1500 }),
-      operativityCertificatePath: faker.system.filePath(),
-      ownershipDocumentPath: faker.system.filePath(),
-    },
-  });
+  // Crear plataformas según número de cotizaciones procesadas
+  const platforms = await Promise.all(
+    Array.from({ length: PROCESADAS }, (_, i) =>
+      prisma.platform.create({
+        data: {
+          serial: `PLAT-${i + 1}`,
+          brand: `Marca-${i % 5}`,
+          model: `Modelo-${i + 1}`,
+          price: 1000 + i * 5,
+          operativityCertificatePath: `cert_plat_${i + 1}.pdf`,
+          ownershipDocumentPath: `prop_${i + 1}.pdf`,
+          status: i % 4 === 0 ? "EN_TRABAJO" : "ACTIVO",
+        },
+      })
+    )
+  );
 
-  const cotizacionesTotales = 22;
-  const procesadas = Math.floor(cotizacionesTotales * 0.8);
+  let procesadas = 0;
+  let pendientes = 0;
 
-  for (let i = 0; i < cotizacionesTotales; i++) {
-    const fechaBase = addDays(MAY_2025, i % 15);
-    const minutosRespuesta = Math.floor(faker.number.float({ min: 20, max: 50 }));
-    const status: QuotationStatus =
-      i < procesadas
-        ? faker.helpers.arrayElement([QuotationStatus.PAGADO, QuotationStatus.RECHAZADO])
-        : QuotationStatus.PENDIENTE_DATOS;
+  for (let i = 0; i < TOTAL; i++) {
+    const dia = i % 15;
+    const fechaBase = addDays(fechaInicio, dia);
 
-    const data = {
-      clientId: client.id,
-      platformId: platform.id,
-      operatorId: operator.id,
-      amount: faker.number.float({ min: 300, max: 2000 }),
-      subtotal: 1000,
-      igv: 180,
-      total: 1180,
-      typeCurrency: "PEN",
-      isNeedOperator: true,
-      status,
-      quotationPath: faker.system.filePath(),
-      startDate: fechaBase,
-      endDate: addDays(fechaBase, 2),
-      createdAt: fechaBase,
-      updatedAt: addMinutes(fechaBase, minutosRespuesta),
-      statusToPendingPagoAt:
-        status !== QuotationStatus.PENDIENTE_DATOS
-          ? addMinutes(fechaBase, minutosRespuesta)
-          : null,
-      statusToPagadoAt:
-        status === QuotationStatus.PAGADO
-          ? addMinutes(fechaBase, minutosRespuesta + 20)
-          : null,
-      statusToRechazadoAt:
-        status === QuotationStatus.RECHAZADO
-          ? addMinutes(fechaBase, minutosRespuesta + 15)
-          : null,
-      rejectionReason:
-        status === QuotationStatus.RECHAZADO ? "No se aprobó presupuesto" : null,
-    };
+    let status: QuotationStatus;
+    let statusToPendingPagoAt: Date | null = null;
+    let statusToPagadoAt: Date | null = null;
+    let statusToRechazadoAt: Date | null = null;
+    let rejectionReason: string | null = null;
 
-    await prisma.quotation.create({ data });
+    let platformId: number | null = null;
+
+    if (procesadas < PROCESADAS && Math.random() > 0.2) {
+      const minutosRespuesta = +(Math.random() * (0.9 - 0.4) + 0.4).toFixed(2);
+      statusToPendingPagoAt = addMinutes(fechaBase, minutosRespuesta);
+
+      if (Math.random() < 0.7) {
+        status = QuotationStatus.PAGADO;
+        statusToPagadoAt = statusToPendingPagoAt;
+      } else {
+        status = QuotationStatus.RECHAZADO;
+        statusToRechazadoAt = statusToPendingPagoAt;
+        rejectionReason = Math.random() < 0.5 ? "Presupuesto rechazado" : "Cliente desistió";
+      }
+
+      platformId = platforms[procesadas].id;
+      procesadas++;
+    } else {
+      status = QuotationStatus.PENDIENTE_DATOS;
+      pendientes++;
+      // Para no violar la FK, seleccionamos una plataforma random ya creada
+      platformId = platforms[Math.floor(Math.random() * platforms.length)].id;
+    }
+
+    const client = clients[i % clients.length];
+    const operator = operators[i % operators.length];
+
+    await prisma.quotation.create({
+      data: {
+        clientId: client.id,
+        platformId,
+        operatorId: operator.id,
+        amount: 1000,
+        subtotal: 1000,
+        igv: 180,
+        total: 1180,
+        typeCurrency: "PEN",
+        isNeedOperator: true,
+        status,
+        quotationPath: `cotizacion_${i + 1}.pdf`,
+        startDate: fechaBase,
+        endDate: addDays(fechaBase, 2),
+        createdAt: fechaBase,
+        updatedAt: new Date(),
+        statusToPendingPagoAt,
+        statusToPagadoAt,
+        statusToRechazadoAt,
+        rejectionReason,
+      },
+    });
   }
 
-  console.log("✅ Datos del PostTest insertados correctamente.");
+  console.log(`✅ Cotizaciones insertadas: ${procesadas} procesadas, ${pendientes} pendientes.`);
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Error al insertar PostTest:", e);
+    console.error("❌ Error al insertar cotizaciones:", e);
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());

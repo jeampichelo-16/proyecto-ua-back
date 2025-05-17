@@ -2,6 +2,7 @@
 /dist
 /node_modules
 /build
+/scripts
 
 # Logs
 logs
@@ -62,3 +63,4 @@ src/config/firebase/credentials.json
 
 # Ignorar todo en prisma
 prisma/migrations
+
