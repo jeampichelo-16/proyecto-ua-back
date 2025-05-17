@@ -2,7 +2,13 @@
 import { PrismaClient } from "@prisma/client";
 import { faker } from "@faker-js/faker";
 import { addDays } from "date-fns";
-import { QuotationStatus } from "src/common/enum/quotation-status.enum";
+
+export enum QuotationStatus {
+  PENDIENTE_DATOS = "PENDIENTE_DATOS",
+  PENDIENTE_PAGO = "PENDIENTE_PAGO",
+  PAGADO = "PAGADO",
+  RECHAZADO = "RECHAZADO",
+}
 
 const prisma = new PrismaClient();
 
