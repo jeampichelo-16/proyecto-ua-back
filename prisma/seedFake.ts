@@ -1,127 +1,92 @@
-import { PrismaClient, Role, PlatformStatus, PlatformType, OperatorStatus, QuotationStatus } from '@prisma/client';
-import { faker } from '@faker-js/faker';
+// seedPostTest.ts
+import { PrismaClient } from "@prisma/client";
+import { faker } from "@faker-js/faker";
+import { addDays } from "date-fns";
+import { QuotationStatus } from "src/common/enum/quotation-status.enum";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🔄 Eliminando datos existentes...');
-  await prisma.quotation.deleteMany();
-  await prisma.operator.deleteMany();
-  await prisma.client.deleteMany();
-  await prisma.platform.deleteMany();
-  await prisma.user.deleteMany();
+  const startDate = new Date("2025-05-01");
 
-  console.log('👤 Creando usuarios...');
-  const users = await Promise.all(
-    Array.from({ length: 5 }).map(() =>
-      prisma.user.create({
-        data: {
-          email: faker.internet.email(),
-          username: faker.internet.userName(),
-          firstName: faker.person.firstName(),
-          lastName: faker.person.lastName(),
-          dni: faker.string.numeric(8),
-          password: faker.internet.password(),
-          role: Role.OPERARIO,
-          isEmailVerified: true,
-          isActive: true,
-        },
-      })
-    )
-  );
+  // Asegúrate de tener al menos un cliente, operador y plataforma
+  const client = await prisma.client.create({
+    data: {
+      name: "Cliente PostTest",
+      email: faker.internet.email(),
+      ruc: faker.string.numeric(11),
+    },
+  });
 
-  console.log('🔧 Creando operadores...');
-  const operators = await Promise.all(
-    users.map((user) =>
-      prisma.operator.create({
-        data: {
-          userId: user.id,
-          emoPDFPath: 'emo.pdf',
-          operativityCertificatePath: 'cert.pdf',
-          costService: faker.number.float({ min: 100, max: 500 }),
-          operatorStatus: faker.helpers.arrayElement(Object.values(OperatorStatus)),
-        },
-      })
-    )
-  );
+  const user = await prisma.user.create({
+    data: {
+      email: faker.internet.email(),
+      username: faker.internet.userName(),
+      firstName: faker.person.firstName(),
+      lastName: faker.person.lastName(),
+      dni: faker.string.numeric(8),
+      password: "hashed-password",
+      role: "OPERARIO",
+    },
+  });
 
-  console.log('🏗️ Creando plataformas...');
-  const platforms = await Promise.all(
-    Array.from({ length: 10 }).map(() =>
-      prisma.platform.create({
-        data: {
-          serial: faker.string.uuid(),
-          brand: faker.company.name(),
-          model: faker.string.alphanumeric(6),
-          price: faker.number.float({ min: 300, max: 1000 }),
-          status: faker.helpers.arrayElement(Object.values(PlatformStatus)),
-          typePlatform: faker.helpers.arrayElement(Object.values(PlatformType)),
-          operativityCertificatePath: 'cert_path.pdf',
-          ownershipDocumentPath: 'ownership.pdf',
-        },
-      })
-    )
-  );
+  const operator = await prisma.operator.create({
+    data: {
+      userId: user.id,
+      emoPDFPath: faker.system.filePath(),
+      operativityCertificatePath: faker.system.filePath(),
+      costService: faker.number.float({ min: 100, max: 300 }),
+    },
+  });
 
-  console.log('👥 Creando clientes...');
-  const clients = await Promise.all(
-    Array.from({ length: 20 }).map(() =>
-      prisma.client.create({
-        data: {
-          name: faker.person.fullName(),
-          email: faker.internet.email(),
-          phone: faker.phone.number(),
-          ruc: faker.string.numeric(11),
-          companyName: faker.company.name(),
-          address: faker.location.streetAddress(),
-        },
-      })
-    )
-  );
+  const platform = await prisma.platform.create({
+    data: {
+      serial: faker.string.uuid(),
+      brand: faker.vehicle.manufacturer(),
+      model: faker.vehicle.model(),
+      price: faker.number.float({ min: 500, max: 1500 }),
+      operativityCertificatePath: faker.system.filePath(),
+      ownershipDocumentPath: faker.system.filePath(),
+    },
+  });
 
-  console.log('📄 Creando cotizaciones...');
-  const now = new Date();
+  // Crear cotizaciones
+  for (let i = 0; i < 22; i++) {
+    const createdAt = addDays(startDate, i % 15);
+    const isProcessed = Math.random() < 0.8;
+    const status: QuotationStatus = faker.helpers.arrayElement([
+      QuotationStatus.PAGADO,
+      QuotationStatus.RECHAZADO,
+      QuotationStatus.PENDIENTE_DATOS,
+    ]);
 
-  await Promise.all(
-    Array.from({ length: 200 }).map(() => {
-      const client = faker.helpers.arrayElement(clients);
-      const platform = faker.helpers.arrayElement(platforms);
-      const operator = faker.helpers.arrayElement(operators);
-      const status = faker.helpers.arrayElement(Object.values(QuotationStatus));
+    await prisma.quotation.create({
+      data: {
+        clientId: client.id,
+        platformId: platform.id,
+        operatorId: operator.id,
+        amount: faker.number.float({ min: 300, max: 2000 }),
+        subtotal: 1000,
+        igv: 180,
+        total: 1180,
+        typeCurrency: "PEN",
+        isNeedOperator: true,
+        status,
+        quotationPath: faker.system.filePath(),
+        startDate: createdAt,
+        endDate: addDays(createdAt, 2),
+        createdAt,
+        statusToPagadoAt:
+          status === QuotationStatus.PAGADO ? addDays(createdAt, 1) : null,
+        rejectionReason:
+          status === QuotationStatus.RECHAZADO
+            ? "No se aprobó presupuesto"
+            : null,
+      },
+    });
+  }
 
-      const startDate = faker.date.recent({ days: 60 });
-      const endDate = faker.date.soon({ days: 10, refDate: startDate });
-
-      const subtotal = faker.number.float({ min: 300, max: 2000 });
-      const igv = subtotal * 0.18;
-      const total = subtotal + igv;
-
-      return prisma.quotation.create({
-        data: {
-          clientId: client.id,
-          platformId: platform.id,
-          operatorId: operator.id,
-          description: faker.lorem.paragraph(),
-          amount: total,
-          subtotal,
-          igv,
-          total,
-          typeCurrency: 'PEN',
-          isNeedOperator: true,
-          status,
-          quotationPath: 'file.pdf',
-          startDate,
-          endDate,
-          createdAt: startDate,
-          statusToPendingPagoAt: status === 'PENDIENTE_PAGO' ? faker.date.between({ from: startDate, to: endDate }) : undefined,
-          statusToPagadoAt: status === 'PAGADO' ? faker.date.between({ from: startDate, to: endDate }) : undefined,
-          statusToRechazadoAt: status === 'RECHAZADO' ? faker.date.between({ from: startDate, to: endDate }) : undefined,
-        },
-      });
-    })
-  );
-
-  console.log('✅ Seed finalizado con datos fake.');
+  console.log("✅ Datos PostTest generados correctamente.");
 }
 
 main()
@@ -129,6 +94,4 @@ main()
     console.error(e);
     process.exit(1);
   })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .finally(() => prisma.$disconnect());
