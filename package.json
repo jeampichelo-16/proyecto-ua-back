@@ -9,7 +9,7 @@
     "copy:templates": "cpx \"src/modules/mail/templates/**/*\" dist/src/modules/mail/templates",
     "copy:firebase": "cpx \"src/config/firebase/*.json\" dist/src/config/firebase",
     "copy:assets": "cpx \"src/assets/**/*\" dist/src/assets",
-    "seed:fake": "ts-node prisma/seedFake.ts",
+    "seed:post": "ts-node prisma/seedPostTest.ts",
     "build": "nest build && npm run copy:templates && npm run copy:firebase && npm run copy:assets",
     "start": "npm run build && node dist/src/main.js",
     "seed": "ts-node prisma/seed.ts",
