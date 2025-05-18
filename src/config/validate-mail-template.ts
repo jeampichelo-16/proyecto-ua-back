@@ -2,7 +2,13 @@
 import { existsSync } from "fs";
 import { join } from "path";
 
-const REQUIRED_TEMPLATES = ["reset-password", "send-password"];
+const REQUIRED_TEMPLATES = [
+  "reset-password",
+  "send-password",
+  "send-receipt",
+  "pay-confirmation",
+  "operation-details"
+];
 
 export function validateMailTemplatesOnStartup() {
   const missing: string[] = [];

@@ -9,7 +9,10 @@ import {
   throwNotFound,
 } from "src/common/utils/errors";
 import { MailService } from "../mail/mail.service";
-import { MailTemplate } from "../mail/constants/mail-template.enum";
+import {
+  MailTemplate,
+  MailTypeSender,
+} from "../mail/constants/mail-template.enum";
 import { UpdateUserDto } from "../users/dto/update-user.dto";
 import { OperatorsService } from "../operators/operators.service";
 import { CreateOperatorDto } from "../operators/dto/create-operator.dto";
@@ -32,6 +35,7 @@ import {
   QuotationMetricsDto,
   TimeSeriesPoint,
 } from "./dto/quotation-metrics.dto";
+import { ClientsService } from "../clients/clients.service";
 
 @Injectable()
 export class AdminService {
@@ -41,6 +45,7 @@ export class AdminService {
     private readonly operatorService: OperatorsService,
     private readonly firebaseService: FirebaseService,
     private readonly platformsService: PlatformsService,
+    private readonly clientsService: ClientsService,
     private readonly prisma: PrismaService
   ) {}
 
@@ -229,6 +234,7 @@ export class AdminService {
       }
 
       await this.mailService.sendTemplateEmail(
+        MailTypeSender.MAILBOT,
         user.email,
         "Confirma tu correo electrónico",
         MailTemplate.SENDPASSWORD,
@@ -311,12 +317,14 @@ export class AdminService {
         "operativityCertificatePath",
       ]);
 
-      const [existingEmailUser, existingDniUser] = await Promise.all([
-        this.usersService.findByEmail(dto.email),
-        this.usersService.findByDni(dto.dni),
-      ]);
+      const [existingEmailUser, existingDniUser, existingClient] =
+        await Promise.all([
+          this.usersService.findByEmail(dto.email),
+          this.usersService.findByDni(dto.dni),
+          this.clientsService.findByEmail(dto.email),
+        ]);
 
-      if (existingEmailUser || existingDniUser) {
+      if (existingEmailUser || existingDniUser || existingClient) {
         throwConflict("Usuario ya existe");
       }
 

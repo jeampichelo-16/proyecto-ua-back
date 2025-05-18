@@ -25,4 +25,7 @@ export class QuotationSummaryResponseDto {
 
   @ApiProperty()
   createdAt: Date;
+
+  @ApiProperty()
+  codeQuotation: string;
 }

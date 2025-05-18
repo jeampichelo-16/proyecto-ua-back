@@ -5,21 +5,23 @@ import { throwBadRequest, throwNotFound } from "src/common/utils/errors";
 import { QuotationStatus } from "src/common/enum/quotation-status.enum";
 import { handleServiceError } from "src/common/utils/handle-error.util";
 import { PdfService } from "../pdf/pdf.service";
-import { MailService } from "../mail/mail.service";
 import { FirebaseService } from "../firebase/firebase.service";
 import { PlatformStatus } from "src/common/enum/platform-status.enum";
 import { Client, Platform, Quotation } from "@prisma/client";
 import { OperatorStatus } from "src/common/enum/operator-status.enum";
 import { ActivateQuotationDto } from "./dto/active-quotation.dto";
-import type { Operator } from "@prisma/client"; // asegúrate de tener esto si no está
+import type { Operator, Prisma } from "@prisma/client"; // asegúrate de tener esto si no está
+import { PlatformsService } from "../platforms/platforms.service";
+import { ClientsService } from "../clients/clients.service";
 
 @Injectable()
 export class QuotationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pdfService: PdfService,
-    private readonly mailService: MailService,
-    private readonly firebaseService: FirebaseService
+    private readonly firebaseService: FirebaseService,
+    private readonly clientsService: ClientsService,
+    private readonly platformsService: PlatformsService
   ) {}
 
   async findActiveClients() {
@@ -58,10 +60,29 @@ export class QuotationsService {
     }
   }
 
-  async findByIdQuotation(id: number): Promise<Quotation | null> {
+  async findByIdQuotation(id: number): Promise<Prisma.QuotationGetPayload<{
+    include: {
+      client: true;
+      platform: true;
+      operator: {
+        include: {
+          user: true;
+        };
+      };
+    };
+  }> | null> {
     try {
       const quotation = await this.prisma.quotation.findUnique({
         where: { id },
+        include: {
+          client: true,
+          platform: true,
+          operator: {
+            include: {
+              user: true,
+            },
+          },
+        },
       });
 
       if (!quotation) {
@@ -88,103 +109,25 @@ export class QuotationsService {
   }
 
   //CREAR COTIZACION
-  /*
-  async createQuotation(dto: CreateQuotationDto): Promise<void> {
-    const {
-      clientId,
-      platformId,
-      description,
-      startDate,
-      endDate,
-      isNeedOperator,
-    } = dto;
-
-    await this.prisma.$transaction(async (tx) => {
-      // 1. Validar cliente
-      const client = await tx.client.findUnique({ where: { id: clientId } });
-      if (!client || !client.isActive) {
-        throwBadRequest("El cliente no existe o está inactivo");
+  private async generateCodeQuotation(
+    clientId: number,
+    platformId: number
+  ): Promise<string> {
+    try {
+      const client = await this.clientsService.findById(clientId);
+      const platform = await this.platformsService.findById(platformId);
+      if (!client || !platform) {
+        throwBadRequest("Cliente o plataforma no encontrados");
       }
-
-      // 2. Validar plataforma
-      const platform = await tx.platform.findUnique({
-        where: { id: platformId },
-      });
-      if (!platform || platform.status !== PlatformStatus.ACTIVO) {
-        throwBadRequest("La plataforma no está activa o no existe");
-      }
-
-      // 3. Validar cotización pendiente
-      const existing = await tx.quotation.findFirst({
-        where: {
-          platformId,
-          status: {
-            in: [
-              QuotationStatus.PENDIENTE_DATOS,
-              QuotationStatus.PENDIENTE_PAGO,
-            ],
-          },
-        },
-      });
-
-      if (existing) {
-        throwBadRequest("Esta plataforma ya tiene una cotización pendiente.");
-      }
-      
-      // 4. Validar fechas
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      if (start >= end) {
-        throwBadRequest("La fecha de inicio debe ser anterior a la de fin.");
-      }
-
-      const diffMs = end.getTime() - start.getTime();
-      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24)); // total días
-      const requiredHours = diffDays * 8;
-
-      if (requiredHours > platform.horometerMaintenance) {
-        throwBadRequest(
-          `El horómetro requerido (${requiredHours}h) excede el límite (${platform.horometerMaintenance}h)`
-        );
-      }
-
-      // 5. Calcular montos
-      const amount = platform.price;
-      const subtotal = amount * diffDays;
-      const igv = subtotal * 0.18;
-      const total = subtotal + igv;
-
-      // 6. Crear cotización
-      await tx.quotation.create({
-        data: {
-          clientId,
-          platformId,
-          description,
-          isNeedOperator,
-          typeCurrency: "S/",
-          amount,
-          subtotal,
-          igv,
-          total,
-          quotationPath: "",
-          status: QuotationStatus.PENDIENTE_DATOS,
-          startDate: start,
-          endDate: end,
-        },
-      });
-
-      // 7. Actualizar estado plataforma
-      await tx.platform.update({
-        where: { id: platformId },
-        data: {
-          status: PlatformStatus.EN_COTIZACION,
-        },
-      });
-      
-    });
+      const clientName = client.name.replace(/\s+/g, "_").toUpperCase();
+      const platformSerial = platform.serial.replace(/\s+/g, "_").toUpperCase();
+      const timestamp = Date.now();
+      const code = `${clientName}_${platformSerial}_${timestamp}`;
+      return code;
+    } catch (error) {
+      handleServiceError(error, "Error al generar el código de cotización");
+    }
   }
-
-  */
 
   async createQuotation(dto: CreateQuotationDto): Promise<void> {
     const {
@@ -267,6 +210,7 @@ export class QuotationsService {
           igv: 0,
           total: 0,
           status: QuotationStatus.PENDIENTE_DATOS,
+          codeQuotation: await this.generateCodeQuotation(clientId, platformId),
         },
       });
 
@@ -284,7 +228,7 @@ export class QuotationsService {
     quotationId: number,
     dto: ActivateQuotationDto,
     days: number
-  ): Promise<void> {
+  ): Promise<{ quotationPath: string; totalAmount: number }> {
     try {
       const { deliveryAmount, operatorId } = dto;
 
@@ -386,6 +330,11 @@ export class QuotationsService {
           quotationPath: folderPath,
         },
       });
+
+      return {
+        quotationPath: folderPath,
+        totalAmount: total,
+      };
     } catch (error) {
       handleServiceError(error, "Error al guardar cambios en la cotización");
     }

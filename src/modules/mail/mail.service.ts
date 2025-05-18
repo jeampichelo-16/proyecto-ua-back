@@ -5,14 +5,7 @@ import { handleServiceError } from "src/common/utils/handle-error.util";
 import { readFileSync } from "fs";
 import { compile } from "handlebars";
 import { join } from "path";
-
-interface TemplatedMail {
-  to: string;
-  from: string;
-  subject: string;
-  template: string;
-  context: Record<string, any>;
-}
+import { MailTypeSender } from "./constants/mail-template.enum";
 
 @Injectable()
 export class MailService {
@@ -20,8 +13,10 @@ export class MailService {
 
   constructor(private readonly configService: ConfigService) {
     this.resend = new Resend(this.configService.get<string>("RESEND_API_KEY"));
-    console.log("Resend API Key:", this.configService.get<string>("RESEND_API_KEY"));
-
+    console.log(
+      "Resend API Key:",
+      this.configService.get<string>("RESEND_API_KEY")
+    );
   }
 
   private renderTemplate(
@@ -39,6 +34,7 @@ export class MailService {
   }
 
   async sendTemplateEmail(
+    typeSender: MailTypeSender,
     to: string,
     subject: string,
     template: string,
@@ -48,7 +44,10 @@ export class MailService {
       const html = this.renderTemplate(template, context);
 
       await this.resend.emails.send({
-        from: "no-reply@mansercomioautonoma.online",
+        from:
+          typeSender === MailTypeSender.MAILBOT
+            ? this.configService.get<string>("SENDER_NOADMIT_RESPONSE") || ""
+            : this.configService.get<string>("SENDER_ADMIT_RESPONSE") || "",
         to,
         subject,
         html,

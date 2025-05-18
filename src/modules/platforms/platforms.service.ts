@@ -11,6 +11,16 @@ import { PlatformStatus } from "src/common/enum/platform-status.enum";
 export class PlatformsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findById(id: number) {
+    try {
+      return await this.prisma.platform.findUnique({
+        where: { id },
+      });
+    } catch (error) {
+      handleServiceError(error, "Error al buscar la plataforma por ID.");
+    }
+  }
+
   async getBySerial(serial: string) {
     try {
       return this.prisma.platform.findUnique({

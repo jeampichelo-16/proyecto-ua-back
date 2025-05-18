@@ -97,7 +97,8 @@ async function main() {
       } else {
         status = QuotationStatus.RECHAZADO;
         statusToRechazadoAt = statusToPendingPagoAt;
-        rejectionReason = Math.random() < 0.5 ? "Presupuesto rechazado" : "Cliente desistió";
+        rejectionReason =
+          Math.random() < 0.5 ? "Presupuesto rechazado" : "Cliente desistió";
       }
 
       platformId = platforms[procesadas].id;
@@ -111,6 +112,14 @@ async function main() {
 
     const client = clients[i % clients.length];
     const operator = operators[i % operators.length];
+    const platform = platforms[Math.floor(Math.random() * platforms.length)];
+
+    const clientNameSanitized = client.name.replace(/\s+/g, "_").toUpperCase();
+    const platformSerialSanitized = platform.serial
+      .replace(/\s+/g, "_")
+      .toUpperCase();
+    const timestamp = Date.now();
+    const codeQuotation = `${clientNameSanitized}_${platformSerialSanitized}_${timestamp}`;
 
     await prisma.quotation.create({
       data: {
@@ -133,11 +142,14 @@ async function main() {
         statusToPagadoAt,
         statusToRechazadoAt,
         rejectionReason,
+        codeQuotation,
       },
     });
   }
 
-  console.log(`✅ Cotizaciones insertadas: ${procesadas} procesadas, ${pendientes} pendientes.`);
+  console.log(
+    `✅ Cotizaciones insertadas: ${procesadas} procesadas, ${pendientes} pendientes.`
+  );
 }
 
 main()

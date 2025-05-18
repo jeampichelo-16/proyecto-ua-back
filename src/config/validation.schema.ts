@@ -24,6 +24,8 @@ export const validationSchema = Joi.object({
 
   // 📫 Correo
   RESEND_API_KEY: Joi.string().required(),
+  SENDER_ADMIT_RESPONSE: Joi.string().email().required(),
+  SENDER_NOADMIT_RESPONSE: Joi.string().email().required(),
 
   // 🌍 URLs
   APP_URL_BACKEND: Joi.string().uri().required(),

@@ -59,6 +59,7 @@ model Client {
 
 model Quotation {
   id                    Int             @id @default(autoincrement())
+  codeQuotation         String          @unique
   clientId              Int
   platformId            Int
   operatorId            Int?

@@ -4,7 +4,6 @@ import { CreateOperatorDto } from "./dto/create-operator.dto";
 import { PrismaService } from "../prisma/prisma.service";
 import { handleServiceError } from "src/common/utils/handle-error.util";
 import { UsersService } from "../users/users.service";
-import { UpdateOperatorDto } from "./dto/update-operator.dto";
 import { throwNotFound } from "src/common/utils/errors";
 import { Prisma } from "@prisma/client";
 import { OperatorStatus } from "src/common/enum/operator-status.enum";
@@ -27,6 +26,23 @@ export class OperatorsService {
       });
     } catch (error) {
       handleServiceError(error, "Error al buscar el operario por ID");
+    }
+  }
+
+  async findByEmail(email: string) {
+    try {
+      return await this.prisma.operator.findFirst({
+        where: {
+          user: {
+            email: email,
+          },
+        },
+        include: {
+          user: true, // 👈 Así puedes acceder a user.email, user.dni, etc.
+        },
+      });
+    } catch (error) {
+      handleServiceError(error, "Error al buscar el operario por email");
     }
   }
 

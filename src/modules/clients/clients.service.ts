@@ -20,10 +20,6 @@ export class ClientsService {
         where: { email },
       });
 
-      if (!client) {
-        throwNotFound("No se encontró el cliente");
-      }
-
       return client;
     } catch (error) {
       handleServiceError(error, "Error al buscar el cliente por email");

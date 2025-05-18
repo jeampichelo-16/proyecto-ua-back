@@ -1,5 +1,5 @@
 import { forwardRef, Inject, Injectable } from "@nestjs/common";
-import { Client, Operator, Platform, Quotation, User } from "@prisma/client";
+import { User } from "@prisma/client";
 import { CreateUserDto, UserResponseDto } from "./dto";
 import { Role } from "src/common/enum/role.enum";
 import { PrismaService } from "src/modules/prisma/prisma.service";
@@ -32,6 +32,13 @@ import { OperatorsService } from "../operators/operators.service";
 import { ActivateQuotationDto } from "../quotations/dto/active-quotation.dto";
 import { validateNamedPDFUploads } from "src/common/utils/file.utils";
 import { FirebaseService } from "../firebase/firebase.service";
+import { MailService } from "../mail/mail.service";
+import {
+  MailTemplate,
+  MailTypeSender,
+} from "../mail/constants/mail-template.enum";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 @Injectable()
 export class UsersService {
@@ -42,7 +49,8 @@ export class UsersService {
     @Inject(forwardRef(() => OperatorsService)) // ✅
     private readonly operatorService: OperatorsService,
     private readonly platformsService: PlatformsService,
-    private readonly firebaseService: FirebaseService
+    private readonly firebaseService: FirebaseService,
+    private readonly mailService: MailService
   ) {}
 
   // AUTH - LOGIN / REESTABLECER CONTRASEÑA - ADMIN / LISTAR EMPLEADOS PAGINADOS / CREAR EMPLEADO
@@ -264,12 +272,12 @@ export class UsersService {
       const plainPassword = generateSecurePassword(12);
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
       const existingUser = await this.findByEmail(dto.email);
-
+      const existingClient = await this.clientsService.findByEmail(dto.email);
       const existingDni = await this.findByDni(dto.dni);
 
       const existingUsername = await this.findByUsername(dto.username);
 
-      if (existingUser || existingDni || existingUsername) {
+      if (existingUser || existingDni || existingUsername || existingClient) {
         throwConflict("Usuario ya existente");
       }
 
@@ -513,6 +521,20 @@ export class UsersService {
   //USER - CREAR CLIENTE
   async createClient(dto: CreateClientDto) {
     try {
+      if (!dto.ruc || !dto.email) {
+        throwBadRequest("El RUC y el Email son obligatorios");
+      }
+
+      const existingUser = await this.prisma.user.findFirst({
+        where: {
+          email: dto.email,
+        },
+      });
+
+      if (existingUser) {
+        throwConflict("El email ya está en uso");
+      }
+
       const client = await this.clientsService.createClient(dto);
 
       if (!client) {
@@ -604,6 +626,7 @@ export class UsersService {
         startDate: q.startDate,
         endDate: q.endDate,
         createdAt: q.createdAt,
+        codeQuotation: q.codeQuotation,
       }));
 
       return {
@@ -635,6 +658,7 @@ export class UsersService {
         status: quotation.status,
         startDate: quotation.startDate,
         endDate: quotation.endDate,
+        codeQuotation: quotation.codeQuotation,
         quotationPath: quotation.quotationPath,
         paymentReceiptPath: quotation.paymentReceiptPath ?? "",
         createdAt: quotation.createdAt,
@@ -664,7 +688,7 @@ export class UsersService {
     }
   }
 
-  //QUOTATIONS - ACTIVAR COTIZACION
+  //QUOTATIONS - ACTIVAR COTIZACIONF
   async activateQuotation(
     quotationId: number,
     dto: ActivateQuotationDto
@@ -675,6 +699,14 @@ export class UsersService {
       );
 
       if (!quotation) throwNotFound("Cotización no encontrada");
+
+      const clientEmail = await this.clientsService.findById(
+        quotation.clientId
+      );
+
+      if (!clientEmail || !clientEmail.email) {
+        throwBadRequest("El cliente no tiene un correo electrónico válido.");
+      }
 
       if (quotation.status !== QuotationStatus.PENDIENTE_DATOS) {
         throwBadRequest(
@@ -707,10 +739,38 @@ export class UsersService {
       const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1;
 
       // 🧠 Delegar el cambio de estado, asignación de operador y PDF
-      await this.quotationsService.updateQuotationActive(
-        quotationId,
-        dto,
-        days
+      const quotationResult =
+        await this.quotationsService.updateQuotationActive(
+          quotationId,
+          dto,
+          days
+        );
+
+      const formattedStartDate = format(
+        quotation.startDate,
+        "d 'de' MMMM 'de' yyyy",
+        { locale: es }
+      );
+      const formattedEndDate = format(
+        quotation.endDate,
+        "d 'de' MMMM 'de' yyyy",
+        { locale: es }
+      );
+
+      await this.mailService.sendTemplateEmail(
+        MailTypeSender.MAILZOHO,
+        clientEmail.email,
+        `Cotización Aprobada - Mansercom (${quotation.codeQuotation})`,
+        MailTemplate.SEND_RECEIPT,
+        {
+          clientName: clientEmail.name,
+          receiptPath: quotationResult.quotationPath,
+          totalAmount: quotationResult.totalAmount,
+          startDate: formattedStartDate,
+          endDate: formattedEndDate,
+          codeQuotation: quotation.codeQuotation,
+          year: new Date().getFullYear(),
+        }
       );
     } catch (error) {
       handleServiceError(error, "Error al actualizar datos de la cotización");
@@ -771,6 +831,49 @@ export class UsersService {
       await this.quotationsService.markQuotationAsPaid(
         quotationId,
         paymentReceiptUrl
+      );
+
+      await this.mailService.sendTemplateEmail(
+        MailTypeSender.MAILBOT,
+        quotation.client.email!,
+        `Verificación de Pago - Mansercom (${quotation.codeQuotation})`,
+        MailTemplate.PAY_CONFIRMATION,
+        {
+          clientName: quotation.client.name,
+          operatorName: quotation.operator
+            ? `${quotation.operator.user.firstName} ${quotation.operator.user.lastName}`
+            : "",
+          totalAmount: quotation.total,
+          startDate: format(quotation.startDate, "d 'de' MMMM 'de' yyyy", {
+            locale: es,
+          }),
+          endDate: format(quotation.endDate, "d 'de' MMMM 'de' yyyy", {
+            locale: es,
+          }),
+          codeQuotation: quotation.codeQuotation,
+          year: new Date().getFullYear(),
+        }
+      );
+
+      await this.mailService.sendTemplateEmail(
+        MailTypeSender.MAILBOT,
+        quotation.operator?.user.email!,
+        `Detalles de la operación - Mansercom (${quotation.codeQuotation})`,
+        MailTemplate.OPERATION_DETAILS,
+        {
+          operatorName: `${quotation.operator?.user.firstName} ${quotation.operator?.user.lastName}`,
+          startDate: format(quotation.startDate, "d 'de' MMMM 'de' yyyy", {
+            locale: es,
+          }),
+          endDate: format(quotation.endDate, "d 'de' MMMM 'de' yyyy", {
+            locale: es,
+          }),
+          platformSerial: quotation.platform.serial,
+          platformBrand: quotation.platform.brand,
+          platformModel: quotation.platform.model,
+          platformType: quotation.platform.typePlatform,
+          year: new Date().getFullYear(),
+        }
       );
     } catch (error) {
       handleServiceError(error, "Error al marcar la cotización como pagada");

@@ -30,7 +30,7 @@ export class QuotationDetailResponseDto {
   isNeedOperator: boolean;
 
   @ApiProperty()
-  paymentReceiptPath: string; 
+  paymentReceiptPath: string;
 
   @ApiProperty({ enum: QuotationStatus })
   status: QuotationStatus;
@@ -40,6 +40,9 @@ export class QuotationDetailResponseDto {
 
   @ApiProperty()
   endDate: Date;
+
+  @ApiProperty()
+  codeQuotation: string;
 
   @ApiProperty()
   quotationPath: string;

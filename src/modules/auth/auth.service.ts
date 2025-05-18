@@ -12,7 +12,10 @@ import { clearAuthCookies, setAuthCookies } from "src/common/utils/cookies";
 import { validateRefreshToken } from "src/common/utils/validate-refresh-token";
 import { generateTokens } from "src/common/utils/generate-tokens";
 import { MailService } from "src/modules/mail/mail.service";
-import { MailTemplate } from "src/modules/mail/constants/mail-template.enum";
+import {
+  MailTemplate,
+  MailTypeSender,
+} from "src/modules/mail/constants/mail-template.enum";
 
 import { TokensResponseDto } from "src/common/dto/tokens-response.dto";
 import { AuthenticatedUser } from "src/common/types/authenticated-user";
@@ -199,6 +202,7 @@ export class AuthService {
       );
 
       await this.mailService.sendTemplateEmail(
+        MailTypeSender.MAILBOT,
         user.email,
         "Restablece tu contraseña",
         MailTemplate.RESET_PASSWORD,

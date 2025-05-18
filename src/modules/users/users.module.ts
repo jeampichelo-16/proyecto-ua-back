@@ -6,6 +6,7 @@ import { QuotationsModule } from "../quotations/quotations.module";
 import { OperatorsModule } from "../operators/operators.module";
 import { PlatformsModule } from "../platforms/platforms.module";
 import { FirebaseModule } from "../firebase/firebase.module";
+import { MailModule } from "../mail/mail.module";
 
 @Module({
   providers: [UsersService],
@@ -15,7 +16,8 @@ import { FirebaseModule } from "../firebase/firebase.module";
     ClientsModule,
     QuotationsModule,
     PlatformsModule,
-    FirebaseModule
+    FirebaseModule,
+    MailModule,
   ],
   controllers: [UsersController],
 })
