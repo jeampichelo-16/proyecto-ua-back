@@ -12,40 +12,10 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: SSH and deploy
+      - name: SSH and deploy using alias
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            set -e
-            trap 'echo "❌ Error durante el despliegue del backend"; exit 1' ERR
-
-            cd /root/app-presentacion/proyecto-ua-back
-
-            echo "📦 Actualizando backend..."
-
-            echo "🛡 Protegiendo prisma/migrations/ localmente..."
-            echo "prisma/migrations/" >> .git/info/exclude || true
-
-            (pm2 describe backend >/dev/null 2>&1 && pm2 stop backend && pm2 delete backend) || echo "⚠️ backend no estaba corriendo"
-
-            echo "📥 Haciendo pull sin sobrescribir prisma/migrations..."
-            git reset --hard HEAD
-            git pull
-
-            echo "🔄 Regenerando cliente Prisma..."
-            npx prisma generate
-
-            echo "🛠 Compilando backend..."
-            npm install
-            npm run build
-
-            echo "🌱 Insertando datos semilla..."
-            npm run seed
-
-            pm2 start dist/src/main.js --name backend
-            pm2 save
-
-            echo "✅ Backend actualizado correctamente sin tocar las migraciones locales"
+          script: bash -i -c "deploy-back"
