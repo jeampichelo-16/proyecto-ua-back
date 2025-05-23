@@ -11,33 +11,89 @@ enum QuotationStatus {
 }
 
 async function main() {
-  const TOTAL = 190;
   const fechaInicio = new Date("2025-05-01");
-  const PROCESADAS = Math.floor(TOTAL * 0.8); // 152 procesadas (≈ 80%)
+  const fechaHasta = addDays(new Date(), 1); // hasta mañana
+  const diffInDays = Math.ceil(
+    (fechaHasta.getTime() - fechaInicio.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const COTIZACIONES_POR_DIA = 8;
+  const TOTAL = diffInDays * COTIZACIONES_POR_DIA;
+  const PROCESADAS = Math.floor(TOTAL * 0.8);
 
-  // Crear 5 clientes
+  const fakeEmails = [
+    "ventas@acme.com",
+    "info@logisticaperu.pe",
+    "contacto@megacorp.net",
+    "admin@transportruta.com",
+    "recepcion@equipostrack.com",
+  ];
+
   const clients = await Promise.all(
     Array.from({ length: 5 }, (_, i) =>
       prisma.client.create({
         data: {
           name: `Cliente ${i + 1}`,
-          email: `cliente${i + 1}@test.com`,
+          companyName: `Empresa ${i + 1} SAC`,
+          phone: `+51 98765${100 + i}`,
+          address: `Av. Principal ${i + 1}xx - Lima`,
+          email: fakeEmails[i],
           ruc: `20${i + 1}23456789`,
         },
       })
     )
   );
 
-  // Crear 5 usuarios + operadores
+  const operatorData = [
+    {
+      firstName: "Luis",
+      lastName: "González",
+      dni: "44561234",
+      email: "lgonzalez@empresa.com",
+      phone: "+51 987654321",
+    },
+    {
+      firstName: "María",
+      lastName: "Fernández",
+      dni: "55672345",
+      email: "mfernandez@empresa.com",
+      phone: "+51 987654322",
+    },
+    {
+      firstName: "Carlos",
+      lastName: "Ramírez",
+      dni: "66783456",
+      email: "cramirez@empresa.com",
+      phone: "+51 987654323",
+    },
+    {
+      firstName: "Ana",
+      lastName: "Torres",
+      dni: "77894567",
+      email: "atorres@empresa.com",
+      phone: "+51 987654324",
+    },
+    {
+      firstName: "Jorge",
+      lastName: "Vega",
+      dni: "88905678",
+      email: "jvega@empresa.com",
+      phone: "+51 987654325",
+    },
+  ];
+
+  const FIXED_DOCUMENT_URL =
+    "https://firebasestorage.googleapis.com/v0/b/proyecto-desarrollo-8095f.firebasestorage.app/o/assets%2Flogo.jpg?alt=media&token=a7818d82-c3cc-4fd4-9ab2-3317c88e979f";
+
   const operators = await Promise.all(
-    Array.from({ length: 5 }, async (_, i) => {
+    operatorData.map(async (data, i) => {
       const user = await prisma.user.create({
         data: {
-          email: `operario${i + 1}@test.com`,
-          username: `operario${i + 1}`,
-          firstName: `Operario`,
-          lastName: `#${i + 1}`,
-          dni: `1234567${i}`,
+          email: data.email,
+          username: `${data.firstName.toLowerCase()}.${data.lastName.toLowerCase()}`,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          dni: data.dni,
+          phone: data.phone,
           password: "hashed-password",
           role: "OPERARIO",
         },
@@ -46,16 +102,15 @@ async function main() {
       return prisma.operator.create({
         data: {
           userId: user.id,
-          emoPDFPath: `emo_${i + 1}.pdf`,
-          operativityCertificatePath: `cert_op_${i + 1}.pdf`,
+          emoPDFPath: FIXED_DOCUMENT_URL,
+          operativityCertificatePath: FIXED_DOCUMENT_URL,
           costService: 200 + i * 10,
-          operatorStatus: i % 2 === 0 ? "ACTIVO" : "EN_TRABAJO",
+          operatorStatus: i % 2 === 0 ? "ACTIVO" : "EN_COTIZACION",
         },
       });
     })
   );
 
-  // Crear plataformas según número de cotizaciones procesadas
   const platforms = await Promise.all(
     Array.from({ length: PROCESADAS }, (_, i) =>
       prisma.platform.create({
@@ -64,9 +119,9 @@ async function main() {
           brand: `Marca-${i % 5}`,
           model: `Modelo-${i + 1}`,
           price: 1000 + i * 5,
-          operativityCertificatePath: `cert_plat_${i + 1}.pdf`,
-          ownershipDocumentPath: `prop_${i + 1}.pdf`,
-          status: i % 4 === 0 ? "EN_TRABAJO" : "ACTIVO",
+          operativityCertificatePath: FIXED_DOCUMENT_URL,
+          ownershipDocumentPath: FIXED_DOCUMENT_URL,
+          status: i % 4 === 0 ? "EN_COTIZACION" : "ACTIVO",
         },
       })
     )
@@ -76,44 +131,83 @@ async function main() {
   let pendientes = 0;
 
   for (let i = 0; i < TOTAL; i++) {
-    const dia = i % 15;
+    const dia = Math.floor(i / COTIZACIONES_POR_DIA);
     const fechaBase = addDays(fechaInicio, dia);
 
+    const isNeedOperator = Math.random() < 0.5;
     let status: QuotationStatus;
     let statusToPendingPagoAt: Date | null = null;
     let statusToPagadoAt: Date | null = null;
     let statusToRechazadoAt: Date | null = null;
     let rejectionReason: string | null = null;
 
-    let platformId: number | null = null;
-
     if (procesadas < PROCESADAS && Math.random() > 0.2) {
-      const minutosRespuesta = +(Math.random() * (0.9 - 0.4) + 0.4).toFixed(2);
-      statusToPendingPagoAt = addMinutes(fechaBase, minutosRespuesta);
+      // Variable: tiempo de cambio a PENDIENTE_PAGO
+      // Distribución centrada en 4–5 minutos con pequeños desvíos
+      const probabilidades = Math.random();
+      let minutosParaCambioDeEstado: number;
 
-      if (Math.random() < 0.7) {
-        status = QuotationStatus.PAGADO;
-        statusToPagadoAt = statusToPendingPagoAt;
+      if (probabilidades < 0.6) {
+        // 60% entre 4 y 5 min
+        minutosParaCambioDeEstado = Math.floor(Math.random() * 2) + 4; // 4 o 5
+      } else if (probabilidades < 0.9) {
+        // 30% entre 3 y 6 min
+        minutosParaCambioDeEstado = Math.floor(Math.random() * 4) + 3; // 3–6
       } else {
-        status = QuotationStatus.RECHAZADO;
-        statusToRechazadoAt = statusToPendingPagoAt;
-        rejectionReason =
-          Math.random() < 0.5 ? "Presupuesto rechazado" : "Cliente desistió";
+        // 10% extremos suaves: 1–2 o 7–8 min
+        minutosParaCambioDeEstado =
+          Math.random() < 0.5
+            ? Math.floor(Math.random() * 2) + 1 // 1–2
+            : Math.floor(Math.random() * 2) + 7; // 7–8
       }
 
-      platformId = platforms[procesadas].id;
+      statusToPendingPagoAt = addMinutes(fechaBase, minutosParaCambioDeEstado);
+
+      if (Math.random() < 1) {
+        status = QuotationStatus.PAGADO;
+        statusToPagadoAt = addMinutes(
+          statusToPendingPagoAt,
+          Math.floor(Math.random() * 60)
+        ); // 0–60 min después
+      } else {
+        status = QuotationStatus.PENDIENTE_PAGO;
+      }
+
       procesadas++;
     } else {
       status = QuotationStatus.PENDIENTE_DATOS;
       pendientes++;
-      // Para no violar la FK, seleccionamos una plataforma random ya creada
-      platformId = platforms[Math.floor(Math.random() * platforms.length)].id;
+    }
+
+    const filteredPlatforms =
+      status === QuotationStatus.PAGADO
+        ? platforms
+        : platforms.filter((p) => p.status === "EN_COTIZACION");
+
+    if (filteredPlatforms.length === 0)
+      throw new Error("No hay plataformas EN_COTIZACION disponibles");
+
+    const platform =
+      filteredPlatforms[Math.floor(Math.random() * filteredPlatforms.length)];
+
+    let selectedOperatorId: number | null = null;
+
+    if (isNeedOperator && status === QuotationStatus.PENDIENTE_PAGO) {
+      const availableOperators = operators.filter(
+        (o) => o.operatorStatus === "EN_COTIZACION"
+      );
+      if (availableOperators.length === 0)
+        throw new Error("No hay operadores EN_COTIZACION disponibles");
+      selectedOperatorId =
+        availableOperators[
+          Math.floor(Math.random() * availableOperators.length)
+        ].id;
+    } else if (status === QuotationStatus.PAGADO) {
+      selectedOperatorId =
+        operators[Math.floor(Math.random() * operators.length)].id;
     }
 
     const client = clients[i % clients.length];
-    const operator = operators[i % operators.length];
-    const platform = platforms[Math.floor(Math.random() * platforms.length)];
-
     const clientNameSanitized = client.name.replace(/\s+/g, "_").toUpperCase();
     const platformSerialSanitized = platform.serial
       .replace(/\s+/g, "_")
@@ -124,16 +218,19 @@ async function main() {
     await prisma.quotation.create({
       data: {
         clientId: client.id,
-        platformId,
-        operatorId: operator.id,
+        platformId: platform.id,
+        operatorId: selectedOperatorId,
         amount: 1000,
         subtotal: 1000,
         igv: 180,
         total: 1180,
         typeCurrency: "PEN",
-        isNeedOperator: true,
+        isNeedOperator,
         status,
-        quotationPath: `cotizacion_${i + 1}.pdf`,
+        quotationPath:
+          status === QuotationStatus.PENDIENTE_DATOS ? "" : FIXED_DOCUMENT_URL,
+        paymentReceiptPath:
+          status === QuotationStatus.PAGADO ? FIXED_DOCUMENT_URL : null,
         startDate: fechaBase,
         endDate: addDays(fechaBase, 2),
         createdAt: fechaBase,
