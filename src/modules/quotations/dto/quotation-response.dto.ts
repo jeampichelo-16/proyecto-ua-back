@@ -6,15 +6,6 @@ export class QuotationSummaryResponseDto {
   id: number;
 
   @ApiProperty()
-  clientName: string;
-
-  @ApiProperty()
-  platformSerial: string;
-
-  @ApiProperty()
-  total: number;
-
-  @ApiProperty()
   status: QuotationStatus;
 
   @ApiProperty()

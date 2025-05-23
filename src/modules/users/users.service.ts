@@ -619,9 +619,6 @@ export class UsersService {
 
       const quotations: QuotationSummaryResponseDto[] = data.map((q) => ({
         id: q.id,
-        clientName: q.client.name,
-        platformSerial: q.platform.serial,
-        total: q.total,
         status: q.status,
         startDate: q.startDate,
         endDate: q.endDate,
