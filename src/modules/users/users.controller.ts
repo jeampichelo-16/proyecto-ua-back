@@ -126,6 +126,7 @@ export class UsersController {
     };
   }
 
+  /*
   @Delete("clients/:id")
   @HttpCode(200)
   @ApiOperation({ summary: "Eliminar un cliente" })
@@ -139,6 +140,7 @@ export class UsersController {
       success: true,
     };
   }
+  */
 
   //crear cotizacion
   //LISTO
@@ -250,6 +252,23 @@ export class UsersController {
   @ApiResponse({ status: 400, type: ErrorResponseDto })
   async getQuotationById(@Param("id") id: number): Promise<MessageResponseDto> {
     const quotation = await this.usersService.getQuotationById(id);
+    return {
+      message: "Cotización obtenida correctamente",
+      statusCode: 200,
+      success: true,
+      data: quotation,
+    };
+  }
+
+  @Get("search/quotations")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Buscar cotización por código" })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, type: ErrorResponseDto })
+  async getQuotationByCode(
+    @Query("codeQuotation") codeQuotation: string
+  ): Promise<MessageResponseDto> {
+    const quotation = await this.usersService.getQuotationByCode(codeQuotation);
     return {
       message: "Cotización obtenida correctamente",
       statusCode: 200,

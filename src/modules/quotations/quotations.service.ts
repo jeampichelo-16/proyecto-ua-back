@@ -130,98 +130,105 @@ export class QuotationsService {
   }
 
   async createQuotation(dto: CreateQuotationDto): Promise<void> {
-    const {
-      clientId,
-      platformId,
-      description,
-      startDate,
-      endDate,
-      isNeedOperator,
-    } = dto;
+    try {
+      const {
+        clientId,
+        platformId,
+        description,
+        startDate,
+        endDate,
+        isNeedOperator,
+      } = dto;
 
-    await this.prisma.$transaction(async (tx) => {
-      // 1. Validar cliente
-      const client = await tx.client.findUnique({ where: { id: clientId } });
-      if (!client || !client.isActive) {
-        throwBadRequest("El cliente no existe o está inactivo");
-      }
+      await this.prisma.$transaction(async (tx) => {
+        // 1. Validar cliente
+        const client = await tx.client.findUnique({ where: { id: clientId } });
+        if (!client || !client.isActive) {
+          throwBadRequest("El cliente no existe o está inactivo");
+        }
 
-      // 2. Validar plataforma
-      const platform = await tx.platform.findUnique({
-        where: { id: platformId },
-      });
+        // 2. Validar plataforma
+        const platform = await tx.platform.findUnique({
+          where: { id: platformId },
+        });
 
-      if (!platform || platform.status !== PlatformStatus.ACTIVO) {
-        throwBadRequest("La plataforma no está activa o no existe");
-      }
+        if (!platform || platform.status !== PlatformStatus.ACTIVO) {
+          throwBadRequest("La plataforma no está activa o no existe");
+        }
 
-      // 3. Validar cotización pendiente
-      const existing = await tx.quotation.findFirst({
-        where: {
-          platformId,
-          status: {
-            in: [
-              QuotationStatus.PENDIENTE_DATOS,
-              QuotationStatus.PENDIENTE_PAGO,
-            ],
+        // 3. Validar cotización pendiente
+        const existing = await tx.quotation.findFirst({
+          where: {
+            platformId,
+            status: {
+              in: [
+                QuotationStatus.PENDIENTE_DATOS,
+                QuotationStatus.PENDIENTE_PAGO,
+              ],
+            },
           },
-        },
+        });
+
+        if (existing) {
+          throwBadRequest("Esta plataforma ya tiene una cotización pendiente.");
+        }
+
+        // 4. Validar fechas
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+
+        if (start >= end) {
+          throwBadRequest("La fecha de inicio debe ser anterior a la de fin.");
+        }
+
+        //VERIFICAR HOROMETRO
+
+        const diffMs = end.getTime() - start.getTime();
+        const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1; // corregido
+        const requiredHours = days * 8; // total horas requeridas
+
+        if (requiredHours > platform.horometerMaintenance) {
+          throwBadRequest(
+            `El horómetro requerido (${requiredHours}h) excede el límite (${platform.horometerMaintenance}h)`
+          );
+        }
+
+        const amountPlatform = platform.price * days; // +1 para incluir el día de inicio
+
+        // 5. Crear cotización
+        await tx.quotation.create({
+          data: {
+            clientId,
+            platformId,
+            description,
+            isNeedOperator,
+            typeCurrency: "S/",
+            quotationPath: "",
+            startDate: start,
+            endDate: end,
+            amount: amountPlatform,
+            subtotal: 0,
+            igv: 0,
+            total: 0,
+            status: QuotationStatus.PENDIENTE_DATOS,
+            codeQuotation: await this.generateCodeQuotation(
+              clientId,
+              platformId
+            ),
+          },
+        });
+
+        // 6. Actualizar estado plataforma
+        await tx.platform.update({
+          where: { id: platformId },
+          data: {
+            status: PlatformStatus.EN_COTIZACION,
+          },
+        });
       });
-
-      if (existing) {
-        throwBadRequest("Esta plataforma ya tiene una cotización pendiente.");
-      }
-
-      // 4. Validar fechas
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-
-      if (start >= end) {
-        throwBadRequest("La fecha de inicio debe ser anterior a la de fin.");
-      }
-
-      //VERIFICAR HOROMETRO
-
-      const diffMs = end.getTime() - start.getTime();
-      const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1; // corregido
-      const requiredHours = days * 8; // total horas requeridas
-
-      if (requiredHours > platform.horometerMaintenance) {
-        throwBadRequest(
-          `El horómetro requerido (${requiredHours}h) excede el límite (${platform.horometerMaintenance}h)`
-        );
-      }
-
-      const amountPlatform = platform.price * days; // +1 para incluir el día de inicio
-
-      // 5. Crear cotización
-      await tx.quotation.create({
-        data: {
-          clientId,
-          platformId,
-          description,
-          isNeedOperator,
-          typeCurrency: "S/",
-          quotationPath: "",
-          startDate: start,
-          endDate: end,
-          amount: amountPlatform,
-          subtotal: 0,
-          igv: 0,
-          total: 0,
-          status: QuotationStatus.PENDIENTE_DATOS,
-          codeQuotation: await this.generateCodeQuotation(clientId, platformId),
-        },
-      });
-
-      // 6. Actualizar estado plataforma
-      await tx.platform.update({
-        where: { id: platformId },
-        data: {
-          status: PlatformStatus.EN_COTIZACION,
-        },
-      });
-    });
+    } catch (error) {
+      handleServiceError(error, "Error al crear la cotización");
+    }
   }
 
   async updateQuotationActive(
@@ -447,23 +454,27 @@ export class QuotationsService {
     })[];
     total: number;
   }> {
-    const skip = (page - 1) * pageSize;
+    try {
+      const skip = (page - 1) * pageSize;
 
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.quotation.findMany({
-        skip,
-        take: pageSize,
-        orderBy: { createdAt: "desc" },
-        include: {
-          client: true,
-          platform: true,
-          operator: true,
-        },
-      }),
-      this.prisma.quotation.count(),
-    ]);
+      const [data, total] = await this.prisma.$transaction([
+        this.prisma.quotation.findMany({
+          skip,
+          take: pageSize,
+          orderBy: { createdAt: "desc" },
+          include: {
+            client: true,
+            platform: true,
+            operator: true,
+          },
+        }),
+        this.prisma.quotation.count(),
+      ]);
 
-    return { data, total };
+      return { data, total };
+    } catch (error) {
+      handleServiceError(error, "Error al obtener las cotizaciones");
+    }
   }
 
   async getQuotationById(id: number): Promise<
@@ -473,19 +484,44 @@ export class QuotationsService {
       operator: Operator | null;
     }
   > {
-    const quotation = await this.prisma.quotation.findUnique({
-      where: { id },
-      include: {
-        client: true,
-        platform: true,
-        operator: true,
-      },
-    });
+    try {
+      const quotation = await this.prisma.quotation.findUnique({
+        where: { id },
+        include: {
+          client: true,
+          platform: true,
+          operator: true,
+        },
+      });
 
-    if (!quotation) {
-      throwNotFound("Cotización no encontrada");
+      if (!quotation) {
+        throwNotFound("Cotización no encontrada");
+      }
+
+      return quotation;
+    } catch (error) {
+      handleServiceError(error, "Error al buscar la cotización por ID");
     }
+  }
 
-    return quotation;
+  async getQuotationByCode(code: string) {
+    try {
+      const quotation = await this.prisma.quotation.findUnique({
+        where: { codeQuotation: code },
+        include: {
+          client: true,
+          platform: true,
+          operator: true,
+        },
+      });
+
+      if (!quotation) {
+        throwNotFound("Cotización no encontrada");
+      }
+
+      return quotation;
+    } catch (error) {
+      handleServiceError(error, "Error al buscar la cotización por código");
+    }
   }
 }

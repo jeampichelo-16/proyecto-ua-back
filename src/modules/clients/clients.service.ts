@@ -162,6 +162,7 @@ export class ClientsService {
     }
   }
 
+  /*
   //ELIMINAR CLIENTE
   async deleteClient(id: number): Promise<Client | null> {
     try {
@@ -180,6 +181,7 @@ export class ClientsService {
       handleServiceError(error, "Error al eliminar el cliente");
     }
   }
+  */
 
   //LISTAR CLIENTES ACTIVOS SIN PAGINAR
   async getAllActiveClients(): Promise<Client[]> {

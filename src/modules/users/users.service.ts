@@ -582,6 +582,7 @@ export class UsersService {
     }
   }
 
+  /*
   //USER - ELIMINAR CLIENTE
   async deleteClient(clientId: number): Promise<void> {
     try {
@@ -593,6 +594,7 @@ export class UsersService {
       handleServiceError(error, "Error al eliminar el cliente");
     }
   }
+  */
 
   //QUOTATIONS - REGISTRAR COTIZACION
   async createQuotation(dto: CreateQuotationDto): Promise<void> {
@@ -634,6 +636,30 @@ export class UsersService {
       };
     } catch (error) {
       handleServiceError(error, "Error al obtener las cotizaciones paginadas");
+    }
+  }
+
+  //QUOTATIONS - OBTENER COTIZACION POR CODIGO DE COTIZACION
+  async getQuotationByCode(
+    codeQuotation: string
+  ): Promise<QuotationSummaryResponseDto> {
+    try {
+      const quotation = await this.quotationsService.getQuotationByCode(
+        codeQuotation
+      );
+
+      if (!quotation) throwNotFound("Cotización no encontrada");
+
+      return {
+        id: quotation.id,
+        status: quotation.status,
+        startDate: quotation.startDate,
+        endDate: quotation.endDate,
+        createdAt: quotation.createdAt,
+        codeQuotation: quotation.codeQuotation,
+      };
+    } catch (error) {
+      handleServiceError(error, "Error al obtener la cotización por código");
     }
   }
 
@@ -903,29 +929,37 @@ export class UsersService {
 
   //USERS - LISTAR OPERARIOS ACTIVOS
   async getAllActiveOperators(): Promise<ActiveOperatorResponseDto[]> {
-    const operators = await this.operatorService.getAllActiveOperators();
+    try {
+      const operators = await this.operatorService.getAllActiveOperators();
 
-    return operators.map((op) => ({
-      id: op.id,
-      userId: op.userId,
-      firstName: op.user.firstName,
-      lastName: op.user.lastName,
-      dni: op.user.dni,
-    }));
+      return operators.map((op) => ({
+        id: op.id,
+        userId: op.userId,
+        firstName: op.user.firstName,
+        lastName: op.user.lastName,
+        dni: op.user.dni,
+      }));
+    } catch (error) {
+      handleServiceError(error, "Error al obtener los operarios activos");
+    }
   }
 
   //USERS - LISTAR PLATAFORMAS ACTIVAS
   async getAllActiveMachines(): Promise<ActiveMachineResponseDto[]> {
-    const platforms = await this.platformsService.getAllActiveMachines();
+    try {
+      const platforms = await this.platformsService.getAllActiveMachines();
 
-    return platforms.map((platform) => ({
-      id: platform.id,
-      serial: platform.serial,
-      brand: platform.brand,
-      model: platform.model,
-      typePlatform: platform.typePlatform,
-      price: platform.price,
-    }));
+      return platforms.map((platform) => ({
+        id: platform.id,
+        serial: platform.serial,
+        brand: platform.brand,
+        model: platform.model,
+        typePlatform: platform.typePlatform,
+        price: platform.price,
+      }));
+    } catch (error) {
+      handleServiceError(error, "Error al obtener las plataformas activas");
+    }
   }
 
   /*
