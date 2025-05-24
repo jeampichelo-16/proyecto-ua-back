@@ -125,7 +125,7 @@ async function main() {
 
       // 🟢 99% de cotizaciones pagadas
       const decision = Math.random();
-      if (decision < 0.99) {
+      if (decision < 0.9995) {
         status = QuotationStatus.PAGADO;
         statusToPagadoAt = addMinutes(statusToPendingPagoAt, Math.floor(Math.random() * 5)); // rápido
       } else {
