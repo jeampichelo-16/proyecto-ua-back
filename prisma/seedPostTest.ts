@@ -113,9 +113,9 @@ async function main() {
       // 🎯 Aumentar tiempo promedio entre estados: ahora 3–15 minutos
       const p = Math.random();
       let minutosParaCambioDeEstado: number;
-      if (p < 0.7) {
+      if (p < 0.85) {
         minutosParaCambioDeEstado = Math.floor(Math.random() * 3) + 3; // 3–5
-      } else if (p < 0.95) {
+      } else if (p < 0.9) {
         minutosParaCambioDeEstado = Math.floor(Math.random() * 4) + 6; // 6–9
       } else {
         minutosParaCambioDeEstado = Math.floor(Math.random() * 6) + 10; // 10–15
