@@ -12,7 +12,7 @@ enum QuotationStatus {
 
 async function main() {
   const fechaInicio = new Date("2025-05-01");
-  const fechaHasta = new Date("2025-05-23");
+  const fechaHasta = new Date("2025-05-24");
   const diffInDays = Math.ceil(
     (fechaHasta.getTime() - fechaInicio.getTime()) / (1000 * 60 * 60 * 24)
   );
