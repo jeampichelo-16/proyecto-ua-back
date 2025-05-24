@@ -110,22 +110,22 @@ async function main() {
     let rejectionReason: string | null = null;
 
     if (procesadas < PROCESADAS && Math.random() > 0.2) {
-      // 🎯 Tiempo corto entre pendiente datos → pendiente pago
+      // 🎯 Aumentar tiempo promedio entre estados: ahora 3–15 minutos
       const p = Math.random();
       let minutosParaCambioDeEstado: number;
       if (p < 0.7) {
-        minutosParaCambioDeEstado = Math.floor(Math.random() * 2) + 1; // 1–2 min
+        minutosParaCambioDeEstado = Math.floor(Math.random() * 3) + 3; // 3–5
       } else if (p < 0.95) {
-        minutosParaCambioDeEstado = Math.floor(Math.random() * 2) + 3; // 3–4 min
+        minutosParaCambioDeEstado = Math.floor(Math.random() * 4) + 6; // 6–9
       } else {
-        minutosParaCambioDeEstado = Math.floor(Math.random() * 2) + 5; // 5–6 min
+        minutosParaCambioDeEstado = Math.floor(Math.random() * 6) + 10; // 10–15
       }
 
       statusToPendingPagoAt = addMinutes(fechaBase, minutosParaCambioDeEstado);
 
-      // ✅ Mayor probabilidad a PAGADO
+      // 🟢 99% de cotizaciones pagadas
       const decision = Math.random();
-      if (decision < 0.97) {
+      if (decision < 0.99) {
         status = QuotationStatus.PAGADO;
         statusToPagadoAt = addMinutes(statusToPendingPagoAt, Math.floor(Math.random() * 5)); // rápido
       } else {
@@ -153,7 +153,6 @@ async function main() {
 
     let selectedOperatorId: number | null = null;
 
-    // Removed check for QuotationStatus.PENDIENTE_PAGO since status is never set to that value
     if (status === QuotationStatus.PAGADO || status === QuotationStatus.RECHAZADO) {
       selectedOperatorId = operators[Math.floor(Math.random() * operators.length)].id;
     }
