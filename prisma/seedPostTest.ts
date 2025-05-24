@@ -13,9 +13,7 @@ enum QuotationStatus {
 async function main() {
   const fechaInicio = new Date("2025-05-01");
   const fechaHasta = new Date("2025-05-24");
-  const diffInDays = Math.ceil(
-    (fechaHasta.getTime() - fechaInicio.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const diffInDays = Math.ceil((fechaHasta.getTime() - fechaInicio.getTime()) / (1000 * 60 * 60 * 24));
   const COTIZACIONES_POR_DIA = 8;
   const TOTAL = diffInDays * COTIZACIONES_POR_DIA;
   const PROCESADAS = Math.floor(TOTAL * 0.8);
@@ -44,41 +42,11 @@ async function main() {
   );
 
   const operatorData = [
-    {
-      firstName: "Luis",
-      lastName: "González",
-      dni: "44561234",
-      email: "lgonzalez@empresa.com",
-      phone: "+51 987654321",
-    },
-    {
-      firstName: "María",
-      lastName: "Fernández",
-      dni: "55672345",
-      email: "mfernandez@empresa.com",
-      phone: "+51 987654322",
-    },
-    {
-      firstName: "Carlos",
-      lastName: "Ramírez",
-      dni: "66783456",
-      email: "cramirez@empresa.com",
-      phone: "+51 987654323",
-    },
-    {
-      firstName: "Ana",
-      lastName: "Torres",
-      dni: "77894567",
-      email: "atorres@empresa.com",
-      phone: "+51 987654324",
-    },
-    {
-      firstName: "Jorge",
-      lastName: "Vega",
-      dni: "88905678",
-      email: "jvega@empresa.com",
-      phone: "+51 987654325",
-    },
+    { firstName: "Luis", lastName: "González", dni: "44561234", email: "lgonzalez@empresa.com", phone: "+51 987654321" },
+    { firstName: "María", lastName: "Fernández", dni: "55672345", email: "mfernandez@empresa.com", phone: "+51 987654322" },
+    { firstName: "Carlos", lastName: "Ramírez", dni: "66783456", email: "cramirez@empresa.com", phone: "+51 987654323" },
+    { firstName: "Ana", lastName: "Torres", dni: "77894567", email: "atorres@empresa.com", phone: "+51 987654324" },
+    { firstName: "Jorge", lastName: "Vega", dni: "88905678", email: "jvega@empresa.com", phone: "+51 987654325" },
   ];
 
   const FIXED_DOCUMENT_URL =
@@ -142,35 +110,28 @@ async function main() {
     let rejectionReason: string | null = null;
 
     if (procesadas < PROCESADAS && Math.random() > 0.2) {
-      // Variable: tiempo de cambio a PENDIENTE_PAGO
-      // Distribución centrada en 4–5 minutos con pequeños desvíos
-      const probabilidades = Math.random();
+      // 🎯 Tiempo corto entre pendiente datos → pendiente pago
+      const p = Math.random();
       let minutosParaCambioDeEstado: number;
-
-      if (probabilidades < 0.6) {
-        // 60% entre 4 y 5 min
-        minutosParaCambioDeEstado = Math.floor(Math.random() * 2) + 4; // 4 o 5
-      } else if (probabilidades < 0.9) {
-        // 30% entre 3 y 6 min
-        minutosParaCambioDeEstado = Math.floor(Math.random() * 4) + 3; // 3–6
+      if (p < 0.7) {
+        minutosParaCambioDeEstado = Math.floor(Math.random() * 2) + 1; // 1–2 min
+      } else if (p < 0.95) {
+        minutosParaCambioDeEstado = Math.floor(Math.random() * 2) + 3; // 3–4 min
       } else {
-        // 10% extremos suaves: 1–2 o 7–8 min
-        minutosParaCambioDeEstado =
-          Math.random() < 0.5
-            ? Math.floor(Math.random() * 2) + 1 // 1–2
-            : Math.floor(Math.random() * 2) + 7; // 7–8
+        minutosParaCambioDeEstado = Math.floor(Math.random() * 2) + 5; // 5–6 min
       }
 
       statusToPendingPagoAt = addMinutes(fechaBase, minutosParaCambioDeEstado);
 
-      if (Math.random() < 1) {
+      // ✅ Mayor probabilidad a PAGADO
+      const decision = Math.random();
+      if (decision < 0.97) {
         status = QuotationStatus.PAGADO;
-        statusToPagadoAt = addMinutes(
-          statusToPendingPagoAt,
-          Math.floor(Math.random() * 60)
-        ); // 0–60 min después
+        statusToPagadoAt = addMinutes(statusToPendingPagoAt, Math.floor(Math.random() * 5)); // rápido
       } else {
-        status = QuotationStatus.PENDIENTE_PAGO;
+        status = QuotationStatus.RECHAZADO;
+        statusToRechazadoAt = addMinutes(statusToPendingPagoAt, Math.floor(Math.random() * 5));
+        rejectionReason = Math.random() < 0.5 ? "Presupuesto rechazado" : "Cliente desistió";
       }
 
       procesadas++;
@@ -180,7 +141,7 @@ async function main() {
     }
 
     const filteredPlatforms =
-      status === QuotationStatus.PAGADO
+      status === QuotationStatus.PAGADO || status === QuotationStatus.RECHAZADO
         ? platforms
         : platforms.filter((p) => p.status === "EN_COTIZACION");
 
@@ -192,26 +153,14 @@ async function main() {
 
     let selectedOperatorId: number | null = null;
 
-    if (isNeedOperator && status === QuotationStatus.PENDIENTE_PAGO) {
-      const availableOperators = operators.filter(
-        (o) => o.operatorStatus === "EN_COTIZACION"
-      );
-      if (availableOperators.length === 0)
-        throw new Error("No hay operadores EN_COTIZACION disponibles");
-      selectedOperatorId =
-        availableOperators[
-          Math.floor(Math.random() * availableOperators.length)
-        ].id;
-    } else if (status === QuotationStatus.PAGADO) {
-      selectedOperatorId =
-        operators[Math.floor(Math.random() * operators.length)].id;
+    // Removed check for QuotationStatus.PENDIENTE_PAGO since status is never set to that value
+    if (status === QuotationStatus.PAGADO || status === QuotationStatus.RECHAZADO) {
+      selectedOperatorId = operators[Math.floor(Math.random() * operators.length)].id;
     }
 
     const client = clients[i % clients.length];
     const clientNameSanitized = client.name.replace(/\s+/g, "_").toUpperCase();
-    const platformSerialSanitized = platform.serial
-      .replace(/\s+/g, "_")
-      .toUpperCase();
+    const platformSerialSanitized = platform.serial.replace(/\s+/g, "_").toUpperCase();
     const timestamp = Date.now();
     const codeQuotation = `${clientNameSanitized}_${platformSerialSanitized}_${timestamp}`;
 
@@ -227,10 +176,8 @@ async function main() {
         typeCurrency: "PEN",
         isNeedOperator,
         status,
-        quotationPath:
-          status === QuotationStatus.PENDIENTE_DATOS ? "" : FIXED_DOCUMENT_URL,
-        paymentReceiptPath:
-          status === QuotationStatus.PAGADO ? FIXED_DOCUMENT_URL : null,
+        quotationPath: status === QuotationStatus.PENDIENTE_DATOS ? "" : FIXED_DOCUMENT_URL,
+        paymentReceiptPath: status === QuotationStatus.PAGADO ? FIXED_DOCUMENT_URL : null,
         startDate: fechaBase,
         endDate: addDays(fechaBase, 2),
         createdAt: fechaBase,
@@ -244,9 +191,7 @@ async function main() {
     });
   }
 
-  console.log(
-    `✅ Cotizaciones insertadas: ${procesadas} procesadas, ${pendientes} pendientes.`
-  );
+  console.log(`✅ Cotizaciones insertadas: ${procesadas} procesadas, ${pendientes} pendientes.`);
 }
 
 main()
