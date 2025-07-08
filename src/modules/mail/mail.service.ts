@@ -13,10 +13,6 @@ export class MailService {
 
   constructor(private readonly configService: ConfigService) {
     this.resend = new Resend(this.configService.get<string>("RESEND_API_KEY"));
-    console.log(
-      "Resend API Key:",
-      this.configService.get<string>("RESEND_API_KEY")
-    );
   }
 
   private renderTemplate(
