@@ -19,6 +19,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiConsumes,
+  ApiQuery,
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "src/modules/auth/guards/jwt-auth.guard";
 import { RolesGuard } from "src/common/guards/roles.guard";
@@ -56,8 +57,23 @@ export class AdminController {
   @ApiOperation({ summary: "Vista del panel de administración" })
   @ApiResponse({ status: 200, type: MessageResponseDto })
   @ApiResponse({ status: 401, type: ErrorResponseDto })
-  async getClientsSummary() {
-    const dataSummary = await this.adminService.getDashboardSummary();
+  @ApiQuery({
+    name: "from",
+    required: false,
+    type: String,
+    description: "Fecha de inicio (yyyy-MM-dd)",
+  })
+  @ApiQuery({
+    name: "to",
+    required: false,
+    type: String,
+    description: "Fecha de fin (yyyy-MM-dd)",
+  })
+  async getClientsSummary(
+    @Query("from") from?: string,
+    @Query("to") to?: string
+  ) {
+    const dataSummary = await this.adminService.getDashboardSummary(from, to);
     return {
       message: "Resumen del panel de administración obtenido correctamente",
       statusCode: 200,
@@ -65,7 +81,6 @@ export class AdminController {
       data: dataSummary,
     };
   }
-
   //employees
   @Get("employees")
   @HttpCode(200)

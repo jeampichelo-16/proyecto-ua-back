@@ -28,7 +28,15 @@ import { UpdateMachineDto } from "../platforms/dto/update-machine.dto";
 import { PlatformStatus } from "src/common/enum/platform-status.enum";
 import { PlatformType } from "src/common/enum/platform-type.enum";
 import { MachineResponseDto } from "../platforms/dto/machine-response.dto";
-import { subDays, format, differenceInSeconds } from "date-fns";
+import {
+  subDays,
+  format,
+  differenceInSeconds,
+  parseISO,
+  isEqual,
+  isAfter,
+  isBefore,
+} from "date-fns";
 import { PrismaService } from "../prisma/prisma.service";
 import { QuotationStatus } from "src/common/enum/quotation-status.enum";
 import {
@@ -36,6 +44,7 @@ import {
   TimeSeriesPoint,
 } from "./dto/quotation-metrics.dto";
 import { ClientsService } from "../clients/clients.service";
+import { Prisma } from "@prisma/client";
 
 @Injectable()
 export class AdminService {
@@ -49,9 +58,39 @@ export class AdminService {
     private readonly prisma: PrismaService
   ) {}
 
-  async getDashboardSummary(): Promise<QuotationMetricsDto> {
+  async getDashboardSummary(
+    from?: string,
+    to?: string
+  ): Promise<QuotationMetricsDto> {
+    const whereClause: Prisma.QuotationWhereInput = {};
+
+    if (from) {
+      const startOfDay = new Date(`${from}T00:00:00.000Z`);
+      if (
+        !whereClause.createdAt ||
+        typeof whereClause.createdAt !== "object" ||
+        whereClause.createdAt === null
+      ) {
+        whereClause.createdAt = {};
+      }
+      (whereClause.createdAt as Prisma.DateTimeFilter).gte = startOfDay;
+    }
+
+    if (to) {
+      const endOfDay = new Date(`${to}T23:59:59.999Z`);
+      if (
+        !whereClause.createdAt ||
+        typeof whereClause.createdAt !== "object" ||
+        whereClause.createdAt === null
+      ) {
+        whereClause.createdAt = {};
+      }
+      (whereClause.createdAt as Prisma.DateTimeFilter).lte = endOfDay;
+    }
+
     const [quotations, platforms, operators] = await Promise.all([
       this.prisma.quotation.findMany({
+        where: whereClause,
         select: {
           createdAt: true,
           status: true,
@@ -79,7 +118,6 @@ export class AdminService {
 
       groupedByDate[dateKey].total++;
 
-      // ✅ Contar pagadas solo si la fecha de pago coincide con la fecha de creación
       if (
         q.status === QuotationStatus.PAGADO &&
         q.statusToPagadoAt &&
@@ -88,7 +126,6 @@ export class AdminService {
         groupedByDate[dateKey].paid++;
       }
 
-      // ⏱ Tiempo de respuesta solo si llegó a PENDIENTE_PAGO
       if (q.statusToPendingPagoAt) {
         const seconds = differenceInSeconds(
           q.statusToPendingPagoAt,
@@ -129,11 +166,19 @@ export class AdminService {
       allResponseTimeSeries.reduce((sum, p) => sum + p.value, 0) /
       (allResponseTimeSeries.length || 1);
 
-    const fromStartDate = (series: TimeSeriesPoint[]) => {
-  const cutoff = new Date('2025-05-01');
-  return series.filter((p) => new Date(p.label) >= cutoff);
-};
+    const filterSeriesByDate = (series: TimeSeriesPoint[]) => {
+      const fromDate = from ? parseISO(from) : null;
+      const toDate = to ? parseISO(to) : null;
 
+      return series.filter((p) => {
+        const current = parseISO(p.label);
+        const afterFrom =
+          !fromDate || isAfter(current, fromDate) || isEqual(current, fromDate);
+        const beforeTo =
+          !toDate || isBefore(current, toDate) || isEqual(current, toDate);
+        return afterFrom && beforeTo;
+      });
+    };
 
     const countByStatus = <T extends { [key: string]: any }>(
       items: T[],
@@ -160,10 +205,10 @@ export class AdminService {
       },
       processedRateSeriesDescription:
         "Porcentaje diario de cotizaciones pagadas respecto al total creado ese día",
-      processedRateSeries: fromStartDate(allProcessedRateSeries),
+      processedRateSeries: filterSeriesByDate(allProcessedRateSeries),
       responseTimeSeriesDescription:
         "Tiempo promedio diario (en minutos) hasta llegar a estado PENDIENTE_PAGO",
-      responseTimeSeries: fromStartDate(allResponseTimeSeries),
+      responseTimeSeries: filterSeriesByDate(allResponseTimeSeries),
       totalPaidAmount: {
         value: parseFloat(totalPaidAmount.toFixed(2)),
         description: "Suma total de montos de cotizaciones pagadas",
