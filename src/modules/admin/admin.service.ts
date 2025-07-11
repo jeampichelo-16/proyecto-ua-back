@@ -66,26 +66,18 @@ export class AdminService {
 
     if (from) {
       const startOfDay = new Date(`${from}T00:00:00.000Z`);
-      if (
-        !whereClause.createdAt ||
-        typeof whereClause.createdAt !== "object" ||
-        whereClause.createdAt === null
-      ) {
-        whereClause.createdAt = {};
-      }
-      (whereClause.createdAt as Prisma.DateTimeFilter).gte = startOfDay;
+      whereClause.createdAt = {
+        ...((typeof whereClause.createdAt === "object" && whereClause.createdAt !== null) ? whereClause.createdAt : {}),
+        gte: startOfDay,
+      };
     }
 
     if (to) {
       const endOfDay = new Date(`${to}T23:59:59.999Z`);
-      if (
-        !whereClause.createdAt ||
-        typeof whereClause.createdAt !== "object" ||
-        whereClause.createdAt === null
-      ) {
-        whereClause.createdAt = {};
-      }
-      (whereClause.createdAt as Prisma.DateTimeFilter).lte = endOfDay;
+      whereClause.createdAt = {
+        ...((typeof whereClause.createdAt === "object" && whereClause.createdAt !== null) ? whereClause.createdAt : {}),
+        lte: endOfDay,
+      };
     }
 
     const [quotations, platforms, operators] = await Promise.all([
@@ -106,6 +98,16 @@ export class AdminService {
     const totalPaidAmount = quotations
       .filter((q) => q.status === QuotationStatus.PAGADO)
       .reduce((sum, q) => sum + q.total, 0);
+
+    const totalQuotations = quotations.length;
+
+    const totalPaidSameDay = quotations.filter(
+      (q) =>
+        q.status === QuotationStatus.PAGADO &&
+        q.statusToPagadoAt &&
+        format(q.statusToPagadoAt, "yyyy-MM-dd") ===
+          format(q.createdAt, "yyyy-MM-dd")
+    ).length;
 
     const groupedByDate: Record<
       string,
@@ -149,7 +151,7 @@ export class AdminService {
 
       allProcessedRateSeries.push({
         label: date,
-        value: parseFloat((processedRate * 100).toFixed(2)),
+        value: parseFloat((processedRate * 100).toFixed(2)), // OK para la gráfica
       });
 
       allResponseTimeSeries.push({
@@ -159,8 +161,9 @@ export class AdminService {
     }
 
     const avgProcessedRate =
-      allProcessedRateSeries.reduce((sum, p) => sum + p.value, 0) /
-      (allProcessedRateSeries.length || 1);
+      totalQuotations > 0
+        ? parseFloat(((totalPaidSameDay / totalQuotations) * 100).toFixed(2))
+        : 0;
 
     const avgResponseTime =
       allResponseTimeSeries.reduce((sum, p) => sum + p.value, 0) /
@@ -194,7 +197,7 @@ export class AdminService {
 
     return {
       averageProcessedRate: {
-        value: parseFloat(avgProcessedRate.toFixed(2)),
+        value: avgProcessedRate,
         description:
           "Promedio global del porcentaje de cotizaciones pagadas el mismo día en que fueron creadas",
       },

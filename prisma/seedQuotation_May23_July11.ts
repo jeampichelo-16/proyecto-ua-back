@@ -3,15 +3,26 @@ import { faker } from "@faker-js/faker";
 import { randomBytes } from "crypto";
 
 faker.seed(42);
-
 const prisma = new PrismaClient();
 
 let CLIENT_IDS: number[] = [];
 let PLATFORM_IDS: number[] = [];
 let OPERATOR_IDS: number[] = [];
 
-const limaOffsetInMs = 5 * 60 * 60 * 1000;
+const START_DATE = new Date("2025-05-23T00:00:00Z");
+const END_DATE = new Date("2025-07-11T23:59:59Z");
 
+const daysBetween = (start: Date, end: Date): Date[] => {
+  const dates: Date[] = [];
+  const current = new Date(start);
+  while (current <= end) {
+    dates.push(new Date(current));
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return dates;
+};
+
+const limaOffsetInMs = 5 * 60 * 60 * 1000;
 const generateLimaDate = (baseDate: Date, hourOffset = 0): Date => {
   const limaDate = new Date(
     Date.UTC(
@@ -47,46 +58,36 @@ async function generateCodeQuotation(
   return `${clientName}_${platformSerial}_${timestamp}_${randomPart}`;
 }
 
-const DAILY_QUOTATIONS: { date: string; paid: number; total: number }[] = [
-  { date: "2025-05-01", paid: 10, total: 10 },
-  { date: "2025-05-02", paid: 9, total: 10 },
-  { date: "2025-05-03", paid: 10, total: 11 },
-  { date: "2025-05-04", paid: 9, total: 11 },
-  { date: "2025-05-05", paid: 8, total: 10 },
-  { date: "2025-05-06", paid: 6, total: 12 },
-  { date: "2025-05-07", paid: 7, total: 11 },
-  { date: "2025-05-08", paid: 10, total: 11 },
-  { date: "2025-05-09", paid: 11, total: 13 },
-  { date: "2025-05-10", paid: 8, total: 13 },
-  { date: "2025-05-11", paid: 11, total: 13 },
-  { date: "2025-05-12", paid: 9, total: 9 },
-  { date: "2025-05-13", paid: 8, total: 9 },
-  { date: "2025-05-14", paid: 9, total: 10 },
-  { date: "2025-05-15", paid: 10, total: 13 },
-  { date: "2025-05-16", paid: 10, total: 11 },
-  { date: "2025-05-17", paid: 6, total: 9 },
-  { date: "2025-05-18", paid: 9, total: 10 },
-  { date: "2025-05-19", paid: 7, total: 12 },
-  { date: "2025-05-20", paid: 7, total: 9 },
-  { date: "2025-05-21", paid: 11, total: 12 },
-  { date: "2025-05-22", paid: 9, total: 10 },
-];
-
 async function main() {
- await prisma.quotation.deleteMany({});
+  // Limpiar antes de insertar
+  // await prisma.quotation.deleteMany({});
 
-  CLIENT_IDS = (await prisma.client.findMany({ select: { id: true } })).map((c) => c.id);
-  PLATFORM_IDS = (await prisma.platform.findMany({ select: { id: true } })).map((p) => p.id);
-  OPERATOR_IDS = (await prisma.operator.findMany({ select: { id: true } })).map((o) => o.id);
+  CLIENT_IDS = (await prisma.client.findMany({ select: { id: true } })).map(
+    (c) => c.id
+  );
+  PLATFORM_IDS = (await prisma.platform.findMany({ select: { id: true } })).map(
+    (p) => p.id
+  );
+  OPERATOR_IDS = (await prisma.operator.findMany({ select: { id: true } })).map(
+    (o) => o.id
+  );
 
+  const days = daysBetween(START_DATE, END_DATE);
   let totalCount = 0;
 
-  for (const { date, paid, total } of DAILY_QUOTATIONS) {
-    const baseDate = new Date(`${date}T00:00:00Z`);
+  for (const day of days) {
+    if (totalCount >= 239) break;
 
-    for (let i = 0; i < total; i++) {
-      const isPaid = i < paid;
+    const remaining = 239 - totalCount;
+    const numQuotations = Math.min(
+      faker.number.int({ min: 12, max: 15 }),
+      remaining
+    );
+    const paidSameDayTarget = Math.round(
+      numQuotations * faker.number.float({ min: 0.775, max: 0.835 }) // entre 16.5% y 22.5% rechazadas
+    );
 
+    for (let i = 0; i < numQuotations; i++) {
       const clientId = faker.helpers.arrayElement(CLIENT_IDS);
       const platformId = faker.helpers.arrayElement(PLATFORM_IDS);
       const isNeedOperator = faker.datatype.boolean();
@@ -94,15 +95,30 @@ async function main() {
         ? faker.helpers.arrayElement(OPERATOR_IDS)
         : null;
 
-      const amount = faker.number.float({ min: 1000, max: 3000, fractionDigits: 2 });
+      const amount = faker.number.float({
+        min: 1000,
+        max: 3000,
+        fractionDigits: 2,
+      });
       const deliveryAmount = isNeedOperator ? 200 : null;
       const subtotal = amount + (deliveryAmount || 0);
       const igv = parseFloat((subtotal * 0.18).toFixed(2));
-      const totalAmount = parseFloat((subtotal + igv).toFixed(2));
+      const total = parseFloat((subtotal + igv).toFixed(2));
 
-      const createdAt = generateLimaDate(baseDate, faker.number.int({ min: 0, max: 2 }));
-      const startDate = generateLimaDate(baseDate, faker.number.int({ min: 3, max: 5 }));
-      const endDate = generateLimaDate(baseDate, faker.number.int({ min: 6, max: 8 }));
+      const createdAt = generateLimaDate(
+        day,
+        faker.number.int({ min: 0, max: 2 })
+      );
+      const startDate = generateLimaDate(
+        day,
+        faker.number.int({ min: 3, max: 5 })
+      );
+      const endDate = generateLimaDate(
+        day,
+        faker.number.int({ min: 6, max: 8 })
+      );
+
+      const isRejected = i >= paidSameDayTarget;
 
       let status: QuotationStatus;
       let statusToPendingPagoAt: Date | null = null;
@@ -110,23 +126,36 @@ async function main() {
       let statusToRechazadoAt: Date | null = null;
       let rejectionReason: string | null = null;
 
-      if (isPaid) {
-        status = QuotationStatus.PAGADO;
-        statusToPendingPagoAt = new Date(createdAt.getTime() + faker.number.float({ min: 3, max: 4.43 }) * 60 * 1000);
-        statusToPagadoAt = new Date(createdAt.getTime() + faker.number.int({ min: 10, max: 25 }) * 60 * 1000);
-      } else {
+      if (isRejected) {
         status = QuotationStatus.RECHAZADO;
-        statusToRechazadoAt = new Date(createdAt.getTime() + faker.number.int({ min: 10, max: 20 }) * 60 * 1000);
+        statusToRechazadoAt = new Date(
+          createdAt.getTime() +
+            faker.number.int({ min: 10, max: 20 }) * 60 * 1000
+        );
         rejectionReason = faker.helpers.arrayElement([
           "Datos incompletos",
           "Cliente canceló",
           "No disponibilidad de plataforma",
         ]);
+      } else {
+        status = QuotationStatus.PAGADO;
+        statusToPendingPagoAt = new Date(
+          createdAt.getTime() +
+            faker.number.float({ min: 3, max: 4.43 }) * 60 * 1000
+        );
+        statusToPagadoAt = new Date(
+          createdAt.getTime() +
+            faker.number.int({ min: 10, max: 25 }) * 60 * 1000
+        );
       }
 
       await prisma.quotation.create({
         data: {
-          codeQuotation: await generateCodeQuotation(clientId, platformId, createdAt),
+          codeQuotation: await generateCodeQuotation(
+            clientId,
+            platformId,
+            createdAt
+          ),
           clientId,
           platformId,
           operatorId,
@@ -135,12 +164,15 @@ async function main() {
           deliveryAmount,
           subtotal,
           igv,
-          total: totalAmount,
+          total,
           typeCurrency: "PEN",
           status,
           description: faker.lorem.sentence(),
           quotationPath: `https://storage.googleapis.com/sandbox-566f/quotations%2Fdemo.pdf`,
-          paymentReceiptPath: status === QuotationStatus.PAGADO ? `https://storage.googleapis.com/sandbox-566f/receipts%2Fdemo.pdf` : null,
+          paymentReceiptPath:
+            status === QuotationStatus.PAGADO
+              ? `https://storage.googleapis.com/sandbox-566f/receipts%2Fdemo.pdf`
+              : null,
           startDate,
           endDate,
           createdAt,
@@ -153,10 +185,13 @@ async function main() {
       });
 
       totalCount++;
+      if (totalCount >= 239) break;
     }
   }
 
-  console.log("✅ Se generaron exactamente 239 cotizaciones con tasas fijas por día (81.18% pagadas).");
+  console.log(
+    "✅ Se generaron 239 cotizaciones entre el 23/05 y 11/07 con fechas Lima y 16.5–22.5% rechazadas."
+  );
 }
 
 main()
