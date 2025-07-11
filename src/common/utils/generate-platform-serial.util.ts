@@ -3,7 +3,7 @@ export function generatePlatformSerial(): string {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2); // '24'
   const month = String(now.getMonth() + 1).padStart(2, "0"); // '04'
-  const randomPart = generateRandomLetters(3); // 'ABC'
+  const randomPart = generateRandomLetters(8); // 'ABC'
 
   return `PLT-${year}${month}-${randomPart}`;
 }

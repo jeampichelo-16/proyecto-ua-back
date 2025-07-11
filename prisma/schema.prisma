@@ -33,7 +33,7 @@ model Operator {
   userId                     Int
   operatorStatus             OperatorStatus @default(ACTIVO)
   emoPDFPath                 String         @db.Text
-  operativityCertificatePath String
+  operativityCertificatePath String         @db.Text
   costService                Float
   createdAt                  DateTime       @default(now())
   updatedAt                  DateTime       @updatedAt
