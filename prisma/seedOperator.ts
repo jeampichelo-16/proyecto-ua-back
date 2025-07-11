@@ -10,7 +10,7 @@ async function main() {
       lastName: 'Durand',
       email: 'brando.durand@mansercom.io.com',
       username: 'brandod',
-      dni: '12345678',
+      dni: '99999999',
       emoPDFPath:
         'https://firebasestorage.googleapis.com/v0/b/proyecto-desarrollo-8095f.firebasestorage.app/o/operators%2Fz-defecto%2FBRANDO%20DURAND%2FEMO%2FEMODB.pdf?alt=media&token=83e5472c-a478-4d94-9423-e1704abfac14',
       operativityCertificatePath:

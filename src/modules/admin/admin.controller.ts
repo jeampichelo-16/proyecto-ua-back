@@ -50,7 +50,6 @@ import { MailService } from "../mail/mail.service";
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
-    private readonly mailService: MailService
   ) {}
 
   @Get("dashboard")
