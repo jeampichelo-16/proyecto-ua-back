@@ -97,7 +97,7 @@ async function main() {
 
       const statusToPendingPagoAt = new Date(createdAt);
       statusToPendingPagoAt.setUTCMinutes(
-        createdAt.getUTCMinutes() + faker.number.int({ min: 2, max: 5 })
+        createdAt.getUTCMinutes() + faker.number.int({ min: 2.5, max: 5.5 })
       );
 
       const statusToPagadoAt = new Date(createdAt);
@@ -120,8 +120,8 @@ async function main() {
           typeCurrency: "PEN",
           status: QuotationStatus.PAGADO,
           description: faker.lorem.sentence(),
-          quotationPath: `files/quotation_COT-${quotationCounter}.pdf`,
-          paymentReceiptPath: `files/payment_COT-${quotationCounter}.pdf`,
+          quotationPath: `https://storage.googleapis.com/sandbox-566f/quotations%2F641%2Fcotizacion-1752214834235.pdf`,
+          paymentReceiptPath: `https://storage.googleapis.com/sandbox-566f/quotations%2F641%2Fcotizacion-1752214834235.pdf`,
           startDate,
           endDate,
           createdAt,
