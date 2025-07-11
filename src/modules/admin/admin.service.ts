@@ -129,10 +129,11 @@ export class AdminService {
       allResponseTimeSeries.reduce((sum, p) => sum + p.value, 0) /
       (allResponseTimeSeries.length || 1);
 
-    const last30Days = (series: TimeSeriesPoint[]) => {
-      const cutoff = subDays(new Date(), 30);
-      return series.filter((p) => new Date(p.label) >= cutoff);
-    };
+    const fromStartDate = (series: TimeSeriesPoint[]) => {
+  const cutoff = new Date('2025-05-01');
+  return series.filter((p) => new Date(p.label) >= cutoff);
+};
+
 
     const countByStatus = <T extends { [key: string]: any }>(
       items: T[],
@@ -159,10 +160,10 @@ export class AdminService {
       },
       processedRateSeriesDescription:
         "Porcentaje diario de cotizaciones pagadas respecto al total creado ese día",
-      processedRateSeries: last30Days(allProcessedRateSeries),
+      processedRateSeries: fromStartDate(allProcessedRateSeries),
       responseTimeSeriesDescription:
         "Tiempo promedio diario (en minutos) hasta llegar a estado PENDIENTE_PAGO",
-      responseTimeSeries: last30Days(allResponseTimeSeries),
+      responseTimeSeries: fromStartDate(allResponseTimeSeries),
       totalPaidAmount: {
         value: parseFloat(totalPaidAmount.toFixed(2)),
         description: "Suma total de montos de cotizaciones pagadas",

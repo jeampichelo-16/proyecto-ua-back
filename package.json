@@ -16,6 +16,7 @@
     "seed:operator": "ts-node prisma/seedOperator.ts",
     "seed:platform": "ts-node prisma/seedPlatforms.ts",
     "seed:client": "ts-node prisma/seedClients.ts",
+    "seed:quotation": "ts-node prisma/seedQuotations.ts",
     "start:dev": "nest start --watch",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start:debug": "nest start --debug --watch",
