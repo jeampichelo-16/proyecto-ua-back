@@ -67,7 +67,10 @@ export class AdminService {
     if (from) {
       const startOfDay = new Date(`${from}T00:00:00.000Z`);
       whereClause.createdAt = {
-        ...((typeof whereClause.createdAt === "object" && whereClause.createdAt !== null) ? whereClause.createdAt : {}),
+        ...(typeof whereClause.createdAt === "object" &&
+        whereClause.createdAt !== null
+          ? whereClause.createdAt
+          : {}),
         gte: startOfDay,
       };
     }
@@ -75,7 +78,10 @@ export class AdminService {
     if (to) {
       const endOfDay = new Date(`${to}T23:59:59.999Z`);
       whereClause.createdAt = {
-        ...((typeof whereClause.createdAt === "object" && whereClause.createdAt !== null) ? whereClause.createdAt : {}),
+        ...(typeof whereClause.createdAt === "object" &&
+        whereClause.createdAt !== null
+          ? whereClause.createdAt
+          : {}),
         lte: endOfDay,
       };
     }
@@ -165,9 +171,15 @@ export class AdminService {
         ? parseFloat(((totalPaidSameDay / totalQuotations) * 100).toFixed(2))
         : 0;
 
+    const allResponseTimes = quotations
+      .filter((q) => q.statusToPendingPagoAt)
+      .map(
+        (q) => differenceInSeconds(q.statusToPendingPagoAt!, q.createdAt) / 60
+      );
+
     const avgResponseTime =
-      allResponseTimeSeries.reduce((sum, p) => sum + p.value, 0) /
-      (allResponseTimeSeries.length || 1);
+      allResponseTimes.reduce((a, b) => a + b, 0) /
+      (allResponseTimes.length || 1);
 
     const filterSeriesByDate = (series: TimeSeriesPoint[]) => {
       const fromDate = from ? parseISO(from) : null;
